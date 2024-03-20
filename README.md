@@ -26,3 +26,28 @@ The sPlot Database is instrumental in addressing questions related to:
 - Effects of climate change on vegetation
 - Conservation status of different vegetation types
 - Distribution and impact of invasive species
+
+## BIEN and TRY Databases Overview
+### BIEN Database
+#### Introduction to BIEN
+The Botanical Information and Ecology Network (BIEN) is a comprehensive platform that aggregates and standardizes global botanical data. Its primary aim is to support large-scale analyses of plant biodiversity, biogeography, and trait distributions. By integrating botanical observations, specimen records, and trait data from various sources, BIEN facilitates research on plant diversity patterns and responses to environmental changes.
+#### How BIEN Works
+- Data Aggregation: BIEN compiles botanical data from herbarium records, plot inventories, and observational datasets, offering a unified resource for exploring global plant diversity.
+- Standardization and Quality Control: The database employs rigorous data cleaning and standardization protocols to ensure data accuracy and comparability. This includes verifying species nomenclature and harmonizing trait measurements.
+- Accessibility and Tools: BIEN provides user-friendly tools for data exploration, species distribution modeling, and trait analysis. Researchers can access spatially explicit data on species occurrences and traits to conduct biodiversity assessments.
+#### Information in BIEN
+- Species Occurrence Records: Geographic locations and environmental settings where plant species have been observed or collected.
+- Plant Traits: Standardized measurements of plant functional traits, such as leaf size, wood density, and seed mass, which are critical for understanding ecological strategies.
+- Taxonomic Information: Detailed taxonomic hierarchies and synonymy, facilitating research on biodiversity patterns across taxonomic groups.
+- Phylogenetic Trees: Phylogenetic relationships among plant species, supporting studies on evolutionary patterns and trait evolution.
+### TRY Database
+#### Introduction to TRY
+The TRY Plant Trait Database is a global repository that collates plant trait data with the objective of improving our understanding of plant functional diversity. Managed by a consortium of international researchers, TRY focuses on making trait data accessible to the scientific community to foster research on climate change impacts, ecosystem services, and biodiversity conservation.
+#### How TRY Works
+- Collaborative Data Collection: TRY compiles plant trait data from published studies, databases, and direct contributions from researchers worldwide.
+- Trait Harmonization: The database standardizes trait definitions and units, offering a consistent framework for trait data. This includes a comprehensive trait ontology covering various plant functional traits.
+- Data Availability: Researchers can request access to TRY data for specific projects, subject to data use agreements that respect data contributors' conditions.
+#### Information in TRY
+- Plant Functional Traits: An extensive collection of quantitative traits, including physiological, morphological, and phenological traits, for thousands of plant species.
+- Metadata: Contextual information accompanying trait measurements, such as experimental conditions, growth forms, and geographic locations.
+- Data Sources: References and origins of the trait data, ensuring transparency and traceability.
