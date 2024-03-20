@@ -1,2 +1,4 @@
-# community_ecology
+# Community ecology code
 Data manipulation in community ecology using different datasets (TRY, sPlot, BIEN) and community ecology index
+
+As part of our scientific methodology, we proceeded to manipulate the data in order to create two distinct databases: one dedicated to the traits of woody species in the Mediterranean region, and the other to the communities of these same species. To do this, we integrated the community data from the _sPlot_ database with the trait data available in the _BIEN_ database. In order to enrich our collection of trait data, for which some information was missing, we also called on the _TRY_ database, an approach which enabled us to efficiently complete our dataset. Before integrating the data into our methodology, it is important to note that the information within the databases has been standardized beforehand. This crucial step ensures data consistency and quality, facilitating comparative analysis and integration.
