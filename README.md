@@ -9,27 +9,20 @@ sPlot amalgamates vegetation-plot data, including species composition, geographi
 ### Standardization
 To ensure comparability across datasets, sPlot standardizes data formats, species nomenclature, and environmental variables. This process involves harmonizing scientific names and ensuring consistent measurement units for environmental variables.
 ### Accessibility
-
 Researchers can access the database for specific projects, adhering to ethical guidelines and data-sharing policies that govern the use of sPlot data.
-4. Collaboration and Growth
-
+### Collaboration and Growth
 sPlot is designed to be collaborative, allowing contributors to add new datasets continuously. This feature ensures that the database remains up-to-date and reflective of current vegetation patterns and biodiversity.
-Information Contained in sPlot
-
+### Information Contained in sPlot
 sPlot hosts a wealth of information crucial for a wide range of ecological inquiries:
-
-    Species Composition: Lists species present in each plot, including vascular plants and sometimes bryophytes and lichens.
-    Abundance and Cover: Provides data on the abundance or cover of species, facilitating analyses of community structure.
-    Plot Metadata: Includes plot size, sampling date, and methodology.
-    Geographical Location: Enables spatial analyses of vegetation patterns across different environmental gradients.
-    Environmental Conditions: Offers data on soil, climate, and other conditions for exploring vegetation-environment relationships.
-    Temporal Data: Supports studies of vegetation changes over time through repeated plot surveys.
-
-Applications
-
+- Species Composition: Lists species present in each plot, including vascular plants and sometimes bryophytes and lichens.
+- Abundance and Cover: Provides data on the abundance or cover of species, facilitating analyses of community structure.
+- Plot Metadata: Includes plot size, sampling date, and methodology.
+- Geographical Location: Enables spatial analyses of vegetation patterns across different environmental gradients.
+- Environmental Conditions: Offers data on soil, climate, and other conditions for exploring vegetation-environment relationships.
+- Temporal Data: Supports studies of vegetation changes over time through repeated plot surveys.
+### Applications
 The sPlot Database is instrumental in addressing questions related to:
-
-    Global patterns of plant trait diversity
-    Effects of climate change on vegetation
-    Conservation status of different vegetation types
-    Distribution and impact of invasive species
+- Global patterns of plant trait diversity
+- Effects of climate change on vegetation
+- Conservation status of different vegetation types
+- Distribution and impact of invasive species
