@@ -1,49 +1,50 @@
-# History files
-.Rhistory
-.Rapp.history
+#Packages
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(esquisse)
+library(sf)
+library(ggspatial)
+library(factoextra)
+library(cluster)
+library(NbClust)
+library(dbscan)
 
-# Session Data files
-.RData
-.RDataTmp
+#load your file from the database make sure you've got this files
+sPlot_traits <- read.csv("sPlot_traits.csv", header = TRUE, sep = ",", stringsAsFactors = FALSE)
+sPlot_species_abundance <- read.csv("sPlot_species_abundance.csv", header = TRUE, sep = ",", stringsAsFactors = FALSE)
+sPlot_header <- read.csv("sPlot_header.csv", header = TRUE, sep = ",", stringsAsFactors = FALSE)
+sPlot_metadata <- read.csv("sPlot_metadata.csv", header = TRUE, sep = ",", stringsAsFactors = FALSE) 
+traits_data <- read.csv("traits_data.csv") #traits data from BIEN database
 
-# User-specific files
-.Ruserdata
+#Data manipulation
+sPlot_SA_GPS <- merge(sPlot_species_abundance, sPlot_header[, c("PlotObservationID", "Latitude", "Longitude")], by = "PlotObservationID") #Dataframe avec ajout de latitude et longitude
+sPlot_SA_GPS$X = NULL
+colnames(sPlot_traits)
+colonnes_sPlot_traits <- c("PlotObservationID", "TraitCoverage_cover", "Species_richness", "TraitCoverage_pa",
+                           "LeafArea_CWM", "StemDens_CWM", "SLA_CWM", "LeafC_perdrymass_CWM", "LeafN_CWM", 
+                           "LeafP_CWM", "PlantHeight_CWM", "SeedMass_CWM", "Seed_length_CWM", "LDMC_CWM", 
+                           "LeafNperArea_CWM", "LeafNPratio_CWM", "Leaf_delta_15N_CWM", "Seed_num_rep_unit_CWM",
+                           "Leaffreshmass_CWM", "Stem_cond_dens_CWM", "Disp_unit_leng_CWM", "Wood_vessel_length_CWM",
+                           "LeafArea_CWV", "StemDens_CWV", "SLA_CWV", "LeafC_perdrymass_CWV", "LeafN_CWV",
+                           "LeafP_CWV", "PlantHeight_CWV", "SeedMass_CWV", "Seed_length_CWV", "LDMC_CWV", 
+                           "LeafNperArea_CWV", "LeafNPratio_CWV", "Leaf_delta_15N_CWV", "Seed_num_rep_unit_CWV",
+                           "Leaffreshmass_CWV", "Stem_cond_dens_CWV", "Disp_unit_leng_CWV", "Wood_vessel_length_CWV", "Latitude", "Longitude")
+sPlot_SA_GPS_traits <- merge(sPlot_SA_GPS, sPlot_traits, by = "PlotObservationID")
+sPlot_SA_Med <- sPlot_SA_GPS_traits %>% #med region
+  filter(Latitude >= 30 & Latitude <= 44 &
+           Longitude >= -12 & Longitude <= 40)
 
-# Example code in package build process
-*-Ex.R
-
-# Output files from R CMD build
-/*.tar.gz
-
-# Output files from R CMD check
-/*.Rcheck/
-
-# RStudio files
-.Rproj.user/
-
-# produced vignettes
-vignettes/*.html
-vignettes/*.pdf
-
-# OAuth2 token, see https://github.com/hadley/httr/releases/tag/v0.3
-.httr-oauth
-
-# knitr and R markdown default cache directories
-*_cache/
-/cache/
-
-# Temporary files created by R markdown
-*.utf8.md
-*.knit.md
-
-# R Environment Variables
-.Renviron
-
-# pkgdown site
-docs/
-
-# translation temp files
-po/*~
-
-# RStudio Connect folder
-rsconnect/
+sPlot_traits_woodiness <- traits_data %>% #création d'un tableau avec les valeurs de traits et les epèces ligneuses
+  select("scrubbed_species_binomial", "trait_name", "trait_value")%>%
+  filter(trait_name == "whole plant woodiness") #on choisit la valeur de trait "whole plant woodiness" pour discriminer les espèces ligneuses des herbacées
+sPlot_traits_woodiness <- sPlot_traits_woodiness %>%
+  rename(Species = scrubbed_species_binomial)
+sPlot_SA_Med_woodiness <- merge(sPlot_SA_Med, sPlot_traits_woodiness, by = "Species")
+sPlot_woodiness <- sPlot_SA_Med_woodiness %>%
+  filter(trait_value %in% c("woody")) #we filter in order to keep the "woody" plant
+sPlot_woodiness_clean <- sPlot_woodiness %>% distinct(PlotObservationID, Species, Original_abundance, Latitude, Longitude, .keep_all = TRUE)
+sPlot_woodiness_clean$Original_species=NULL
+sPlot_woodiness_clean$Abundance_scale=NULL
+sPlot_woodiness_clean$X=NULL #final dataframe
+write.csv(sPlot_woodiness, "sPlot_woodiness.csv") #make sure you send this file in the right directory file
