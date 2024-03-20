@@ -16,9 +16,10 @@ sPlot_species_abundance <- read.csv("sPlot_species_abundance.csv", header = TRUE
 sPlot_header <- read.csv("sPlot_header.csv", header = TRUE, sep = ",", stringsAsFactors = FALSE)
 sPlot_metadata <- read.csv("sPlot_metadata.csv", header = TRUE, sep = ",", stringsAsFactors = FALSE) 
 traits_data <- read.csv("traits_data.csv") #traits data from BIEN database
+data_fr_sp <- read.csv("data_fr_sp.csv") #Your file with your data traits (for us its data traits from woody plants in France and Spain)
 
 #Data manipulation
-sPlot_SA_GPS <- merge(sPlot_species_abundance, sPlot_header[, c("PlotObservationID", "Latitude", "Longitude")], by = "PlotObservationID") #Dataframe avec ajout de latitude et longitude
+sPlot_SA_GPS <- merge(sPlot_species_abundance, sPlot_header[, c("PlotObservationID", "Latitude", "Longitude")], by = "PlotObservationID") #just 
 sPlot_SA_GPS$X = NULL
 colnames(sPlot_traits)
 colonnes_sPlot_traits <- c("PlotObservationID", "TraitCoverage_cover", "Species_richness", "TraitCoverage_pa",
@@ -48,3 +49,87 @@ sPlot_woodiness_clean$Original_species=NULL
 sPlot_woodiness_clean$Abundance_scale=NULL
 sPlot_woodiness_clean$X=NULL #final dataframe
 write.csv(sPlot_woodiness, "sPlot_woodiness.csv") #make sure you send this file in the right directory file
+
+#Assessment of characterization rates of Mediterranean woody communities
+species_vector <- unique(data_fr_sp$Species) #names of described species
+sites_species_matrix_woodiness <- table(sPlot_woodiness_clean$PlotObservationID, sPlot_woodiness_clean$Species) #creation of a site-species matrix
+described_species_matrix_woodiness <- sites_species_matrix_woodiness[, colnames(sites_species_matrix_woodiness) %in% species_vector] #creation of a matrix for described site-species (subsample)
+total_species_sum_woodiness <- rowSums(sites_species_matrix_woodiness)
+described_species_sum_woodiness <- rowSums(described_species_matrix_woodiness)
+species_percentage_woodiness <- described_species_sum_woodiness / total_species_sum_woodiness * 100 #calculation of the percentage of described species in the communities
+sPlot_woodiness_clean$Species_Percentage <- species_percentage_woodiness[match(sPlot_woodiness_clean$PlotObservationID, names(species_percentage_woodiness))]
+sPlot_woodiness_clean$Species_Percentage
+#species_med <- read.csv("species_frequency_woodiness_TCD.csv") #this file contains all the woody mediterranean plant interesting for our study
+species_med <- species_med %>%
+  select(all_species, total_occurrence, X.1) %>%
+  rename(Species=all_species,
+         commentary=X.1)
+species_med_clean <- species_med %>%
+  filter(is.na(commentary) | commentary == "")
+sPlot_percent_woodiness <- sPlot_woodiness_clean %>% #Creation of a dataframe containing percentages and GPS coordinates (QGIS)
+  select(Species, Latitude, Longitude, Species_Percentage) %>%
+  mutate(
+    Latitude = round(Latitude, 3),
+    Longitude = round(Longitude, 3)
+  ) %>%
+  distinct() %>%
+  filter(Species %in% species_med_clean$Species) %>%
+  group_by(Latitude, Longitude) %>%
+  summarise(
+    count = n_distinct(Species), #counts unique species per group
+    all_species = toString(unique(Species)), #concatenation
+    Avg_Species_Percentage = mean(Species_Percentage, na.rm = TRUE) #Average Percentage
+  )
+
+#Map creation
+sPlot_sf <- st_as_sf(sPlot_percent_woodiness, coords = c("Longitude", "Latitude"), crs = 4326)
+
+ggplot(sPlot_sf) +
+  annotation_map_tile(type = "osm", zoom = 0, alpha = 0.5) + # Adds a map background
+  aes(colour = Avg_Species_Percentage) +
+  geom_sf(size = 1.2) +
+  scale_color_gradient(low = "#ECDEC0", high = "#D31212") +
+  labs(colour = "%",
+       title = "Evaluation of characterization rates of woody communities") + # Customizes the legend
+  theme_minimal()
+
+#Described species density
+ggplot(sPlot_percent_woodiness) +
+  aes(x = Avg_Species_Percentage) +
+  geom_density(adjust = 0.7, fill = "#0F440F") +
+  labs(
+    x = "Percentage of described species within each community",
+    y = "Density",
+    title = "Density of the number of described species within each community (%)",
+    subtitle = "Mediterranean Basin"
+  ) +
+  theme_light() +
+  theme(
+    plot.title = element_text(size = 16L,
+                              face = "bold",
+                              hjust = 0.5),
+    axis.title.x = element_text(face = "italic"),
+    axis.title.y = element_text(face = "italic")
+  )
+#species_percentage <- read.csv("sPlot_percent_woodiness.csv")
+sPlot_separated <- species_percentage %>%
+  separate_rows(all_species, sep = ",") %>%
+  mutate(all_species = trimws(all_species)) 
+species_frequency <- sPlot_separated %>%
+  count(all_species, name = "total_occurrence") %>%
+  arrange(desc(total_occurrence))
+med_occurrence <- median(species_frequency$total_occurrence)
+species_frequency$group <- ifelse(species_frequency$total_occurrence > med_occurrence, "High Occurrence", "Low Occurrence")
+#You want to create your graph representing occurence by Species
+ggplot(species_frequency) +
+  aes(x = reorder(all_species, total_occurrence), y = total_occurrence, fill = total_occurrence) +
+  geom_col() +
+  coord_flip() +
+  facet_wrap(~group, scales = "free_y") +
+  scale_fill_gradient(low = "#b2c2bf", high = "#0F440F") + # Sage green to forest green
+  labs(x = "Species", y = "Occurrence", title = "Occurrence by Species") +
+  theme_light() +
+  theme(axis.text.y = element_text(size = 10, angle = 0, hjust = 1),
+        plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+        axis.title.y = element_text(face = "italic"),
+        axis.title.x = element_text(face = "italic"))
