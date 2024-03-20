@@ -2,7 +2,7 @@
 library(dplyr)
 library(tidyr)
 library(ggplot2)
-library(esquisse)
+library(esquisse) #a package to simplify the use of ggplot
 library(sf)
 library(ggspatial)
 library(factoextra)
@@ -80,7 +80,6 @@ sPlot_percent_woodiness <- sPlot_woodiness_clean %>% #Creation of a dataframe co
     all_species = toString(unique(Species)), #concatenation
     Avg_Species_Percentage = mean(Species_Percentage, na.rm = TRUE) #Average Percentage
   )
-
 #Map creation
 sPlot_sf <- st_as_sf(sPlot_percent_woodiness, coords = c("Longitude", "Latitude"), crs = 4326)
 
@@ -133,3 +132,5 @@ ggplot(species_frequency) +
         plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
         axis.title.y = element_text(face = "italic"),
         axis.title.x = element_text(face = "italic"))
+
+#Diver
