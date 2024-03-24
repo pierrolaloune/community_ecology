@@ -133,4 +133,179 @@ ggplot(species_frequency) +
         axis.title.y = element_text(face = "italic"),
         axis.title.x = element_text(face = "italic"))
 
-#Diver
+# Load data from a CSV file
+species_percentage <- read.csv("sPlot_percent_woodiness.csv")
+
+# Separate the species listed in the 'all_species' column, trim whitespace
+sPlot_separated <- species_percentage %>%
+  tidyr::separate_rows(all_species, sep = ",") %>%
+  dplyr::mutate(all_species = trimws(all_species))
+
+# Count the frequency of each species and sort by frequency
+species_frequency <- sPlot_separated %>%
+  dplyr::count(all_species, name = "total_occurrence") %>%
+  dplyr::arrange(desc(total_occurrence))
+
+# Calculate the median occurrence for grouping
+med_occurrence <- median(species_frequency$total_occurrence)
+
+# Classify species into 'High Occurrence' or 'Low Occurrence' based on median
+species_frequency$group <- ifelse(species_frequency$total_occurrence > med_occurrence, 
+                                   "High Occurrence", "Low Occurrence")
+
+# Plotting
+ggplot(species_frequency) +
+  aes(x = reorder(all_species, total_occurrence), y = total_occurrence, fill = total_occurrence) +
+  geom_col() +
+  coord_flip() +  # Flip coordinates for horizontal bars
+  facet_wrap(~group, scales = "free_y") +  # Separate plots based on occurrence group
+  scale_fill_gradient(low = "#b2c2bf", high = "#0F440F") +  # Sage green to forest green color gradient
+  labs(x = "Species", y = "Occurrence", title = "Occurrence by Species") +  # Labels and title
+  theme_light() +  # Light theme for the plot
+  theme(axis.text.y = element_text(size = 10, angle = 0, hjust = 1),  # Custom theme settings
+        plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+        axis.title.y = element_text(face = "italic"),
+        axis.title.x = element_text(face = "italic"))
+
+# Identify unique species from a dataset on species frequency
+species_community <- unique(species_frequency$all_species)
+# Filter data to include only species found in the species_community
+community <- sPlot_woodiness_clean[sPlot_woodiness_clean$Species %in% species_community, ]
+
+# Assign names to each community
+community <- community %>%
+  dplyr::select(Species, PlotObservationID, Original_abundance, Relative_cover, TraitCoverage_cover, Species_richness, Species_Percentage, Latitude, Longitude) %>%
+  group_by(Latitude, Longitude, PlotObservationID) %>%
+  mutate(Community_Name = paste0("community_", cur_group_id())) %>%
+  ungroup()
+
+# Summary of communities
+community_summary <- community %>%
+  group_by(Community_Name) %>%
+  summarise(
+    Number_of_Species = n_distinct(Species),
+    Average_Abundance = mean(Original_abundance, na.rm = TRUE),
+    Average_Relative_Cover = mean(Relative_cover, na.rm = TRUE),
+    Average_Species_Richness = mean(Species_richness, na.rm = TRUE),
+    Average_Species_Percentage = mean(Species_Percentage, na.rm = TRUE)
+  )
+
+# Species by communities
+species_in_community <- community %>%
+  dplyr::select(Community_Name, Species, Original_abundance, Relative_cover) %>%
+  arrange(Community_Name, Species)
+
+# Redefine communities based on habitat + abiotic conditions
+selected_columns <- c("PlotObservationID", "Latitude", "Longitude", "Grassland", "Forest", "Shrubland", "Wetland", "SoilClim_PC1", "SoilClim_PC2") # Principal components PC1 + PC2 for soil and climate
+sPlot_header_selected <- sPlot_header[, selected_columns]
+community_environment <- merge(community, sPlot_header_selected, by = c("PlotObservationID", "Latitude", "Longitude"))
+community_environment <- na.omit(community_environment)
+
+# Community data with community names
+community_name <- community_environment %>%
+  group_by(Latitude, Longitude) %>%
+  summarise(Species = list(Species),
+            Abundance = list(Original_abundance),
+            Grassland = first(Grassland), 
+            Forest = first(Forest),
+            Shrubland = first(Shrubland),
+            Wetland = first(Wetland),
+            SoilClim_PC1 = first(SoilClim_PC1),
+            SoilClim_PC2 = first(SoilClim_PC2),
+            .groups = 'drop') %>%
+  rowwise() %>%
+  mutate(Ranked_Species = list(Species[order(-unlist(Abundance))][1:min(2, length(Species))])) %>%
+  ungroup() %>%
+  mutate(Community_Name = sapply(Ranked_Species, function(x) paste(x, collapse=" "))) %>%
+  dplyr::select(-Species, -Abundance, -Ranked_Species)
+
+# Creates a scatter plot showing the relationship between average abundance per species and the number of species
+ggplot(community_summary, aes(x = Average_Abundance, y = Number_of_Species)) +
+  # Adds points to the plot, coloring them based on average species richness, with partial transparency and a specified size
+  geom_point(aes(color = Average_Species_Richness), alpha = 0.6, size = 3) +
+  # Adds a smoothed line (loess) to illustrate the trend, with standard error shown in red
+  geom_smooth(method = "loess", formula = y ~ x, se = TRUE, color = "red", linewidth = 1) +
+  # Applies a color scale with the viridis palette, naming the legend "Average Species Richness"
+  scale_color_viridis_c(name = "Average Species Richness", option = "H") +
+  # Sets labels for axes and the title
+  labs(x = "Average Abundance per Species", y = "Number of Species",
+       title = "Species Abundance Distribution") +
+  # Uses a light theme for the plot
+  theme_light() +
+  # Customizes text and title appearance
+  theme(axis.text.y = element_text(size = 10, angle = 0, hjust = 1),
+        plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+        axis.title.y = element_text(face = "italic"),
+        axis.title.x = element_text(face = "italic")) + 
+  # Positions the legend at the bottom
+  theme(legend.position = "bottom")
+
+# Similar to the first snippet but adds log10 scales for both axes
+ggplot(community_summary, aes(x = Average_Abundance, y = Number_of_Species)) +
+  geom_point(aes(color = Average_Species_Richness), alpha = 0.6, size = 3) +
+  geom_smooth(method = "loess", formula = y ~ x, se = TRUE, color = "red", linewidth = 1) +
+  # Applies a logarithmic transformation to the x-axis and sets its limits
+  scale_x_log10(name = "Average Abundance per Species (log)", limits = c(1, NA)) +
+  # Applies a logarithmic transformation to the y-axis and sets its limits
+  scale_y_log10(name = "Number of Species (log)", limits = c(1, NA)) +
+  # The color scale and labels are the same as the first snippet
+  scale_color_viridis_c(name = "Average Species Richness", option = "H") +
+  labs(x = "Average Abundance per Species", y = "Number of Species",
+       title = "Species Abundance Distribution") +
+  theme_light() +
+  theme(axis.text.y = element_text(size = 10, angle = 0, hjust = 1),
+        plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+        axis.title.y = element_text(face = "italic"),
+        axis.title.x = element_text(face = "italic")) +
+  theme(legend.position = "bottom")
+
+# Filter the data to select only the necessary columns and then group by PlotObservationID
+filtered_data <- community_environment %>%
+  dplyr::select(PlotObservationID, Species, Original_abundance) %>%
+  group_by(PlotObservationID)
+
+# Create a community matrix using the xtabs function, crossing original abundance with Plot IDs and Species
+community_matrix <- xtabs(Original_abundance ~ PlotObservationID + Species, data = filtered_data)
+
+# Calculate Shannon diversity index for the community matrix
+shannon_diversity <- diversity(community_matrix, index = "shannon")
+
+# Create a data frame from the Shannon diversity indices
+shannon_df <- data.frame(PlotObservationID = names(shannon_diversity), a_diversity = shannon_diversity)
+
+# Convert PlotObservationID to numeric
+shannon_df$PlotObservationID <- as.numeric(shannon_df$PlotObservationID)
+
+# Join the Shannon diversity data frame back to the main community environment dataset
+community_environment <- community_environment %>%
+  left_join(shannon_df, by = "PlotObservationID")
+
+# Join the Shannon diversity data frame with a subset of community_index_percentage_species to get community IDs
+alpha_diversity <- shannon_df %>%
+  left_join(dplyr::select(community_index_percentage_species, PlotObservationID, Community_ID), 
+            by = "PlotObservationID")
+
+# Remove duplicate rows to have unique alpha diversity values
+alpha_diversity_unique <- alpha_diversity %>% distinct()
+
+# Calculate the mean alpha diversity per community ID
+shannon_per_community <- alpha_diversity %>%
+  group_by(Community_ID) %>%
+  summarise(Mean_a_diversity = mean(a_diversity, na.rm = TRUE))
+
+# Merge the mean alpha diversity per community with the community mean dataset
+diversity_info <- merge(shannon_per_community, community_mean, by = "Community_ID")
+
+# Convert Community_ID to a factor for plotting purposes
+diversity_info$Community_ID <- factor(diversity_info$Community_ID)
+
+# Plot the mean alpha diversity per community using ggplot2
+ggplot(diversity_info) +
+ aes(x = Community_ID, y = Mean_a_diversity, fill = Mean_Species_richness) +
+ geom_col() +
+ scale_fill_distiller(palette = "RdYlGn", direction = 1) +
+ labs(x = "Community Identifier", 
+ y = "Alpha Diversity (Shannon Index)", fill = "Species Richness") +
+ theme_minimal() +
+ theme(plot.title = element_text(size = 15L, 
+ face = "bold", hjust = 0.5), axis.title.y = element_text(size = 10L), axis.title.x = element_text(size = 10L))
