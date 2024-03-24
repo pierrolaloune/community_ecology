@@ -1,0 +1,536 @@
+---
+title: "Community data - sPlot"
+author: "Pierre Bouchet"
+date: "2024-03-15"
+output: html_document
+---
+# Préparation des données et manipulation des données
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+#Répertoire de travail
+setwd("C:/R/STAGE/")
+#Packages
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(esquisse)
+library(sf)
+library(ggspatial)
+library(factoextra)
+library(cluster)
+library(NbClust)
+library(dbscan)
+library(raster)
+library(sp)
+library(vegan)
+library(conflicted)
+
+#Chargement des fichiers
+sPlot_traits <- read.csv("sPlot_traits.csv", header = TRUE, sep = ",", stringsAsFactors = FALSE)
+sPlot_species_abundance <- read.csv("sPlot_species_abundance.csv", header = TRUE, sep = ",", stringsAsFactors = FALSE)
+sPlot_header <- read.csv("sPlot_header.csv", header = TRUE, sep = ",", stringsAsFactors = FALSE)
+sPlot_metadata <- read.csv("sPlot_metadata.csv", header = TRUE, sep = ",", stringsAsFactors = FALSE) 
+traits_data <- read.csv("traits_data.csv") #fichier de traits
+sPlot_woodiness <- read.csv("sPlot_woodiness.csv")
+sPlot_woodiness_clean <- read.csv("sPlot_woodiness_clean.csv")
+data_fr_sp <- read.csv("data_fr_sp.csv")
+species_med <- read.csv("species_frequency_woodiness_TCD.csv")
+sPlot_percent <- read.csv("sPlot_percent_woodiness.csv")
+
+```
+<br>
+Dans le cadre de notre méthodologie scientifique, nous avons procédé à la manipulation des données afin de constituer deux bases de données distinctes : l'une dédiée aux traits des espèces ligneuses de la région méditerranéenne et l'autre aux communautés de ces mêmes espèces. Pour ce faire, nous avons intégré les données de communautés provenant de la base _sPlot_ avec les données de traits disponibles dans la base _BIEN_. Afin d'enrichir notre collection de données de traits, pour lesquelles certaines informations étaient manquantes, nous avons également fait appel à la base de données _TRY_, une démarche qui nous a permis de compléter efficacement notre ensemble de données. Avant l'intégration des données dans notre méthodologie, il est important de noter que les informations au sein des bases de données ont été préalablement standardisées. Cette étape cruciale assure l'uniformité et la qualité des données, facilitant ainsi leur analyse comparative et leur intégration.
+<br>
+```{r, include=FALSE}
+#sPlot_SA_GPS <- merge(sPlot_species_abundance, sPlot_header[, c("PlotObservationID", "Latitude", "Longitude")], by = "PlotObservationID") #Dataframe avec ajout de latitude et longitude
+#sPlot_SA_GPS$X = NULL
+#colnames(sPlot_traits)
+#colonnes_sPlot_traits <- c("PlotObservationID", "TraitCoverage_cover", "Species_richness", "TraitCoverage_pa",
+#                           "LeafArea_CWM", "StemDens_CWM", "SLA_CWM", "LeafC_perdrymass_CWM", "LeafN_CWM", 
+#                           "LeafP_CWM", "PlantHeight_CWM", "SeedMass_CWM", "Seed_length_CWM", "LDMC_CWM", 
+#                           "LeafNperArea_CWM", "LeafNPratio_CWM", "Leaf_delta_15N_CWM", "Seed_num_rep_unit_CWM",
+#                           "Leaffreshmass_CWM", "Stem_cond_dens_CWM", "Disp_unit_leng_CWM", "Wood_vessel_length_CWM",
+#                           "LeafArea_CWV", "StemDens_CWV", "SLA_CWV", "LeafC_perdrymass_CWV", "LeafN_CWV",
+#                           "LeafP_CWV", "PlantHeight_CWV", "SeedMass_CWV", "Seed_length_CWV", "LDMC_CWV", 
+#                           "LeafNperArea_CWV", "LeafNPratio_CWV", "Leaf_delta_15N_CWV", "Seed_num_rep_unit_CWV",
+#                           "Leaffreshmass_CWV", "Stem_cond_dens_CWV", "Disp_unit_leng_CWV", "Wood_vessel_length_CWV", "Latitude", "Longitude")
+#sPlot_SA_GPS_traits <- merge(sPlot_SA_GPS, sPlot_traits, by = "PlotObservationID")
+#sPlot_SA_Med <- sPlot_SA_GPS_traits %>% #on centre sur la région méditerranéenne
+#  filter(Latitude >= 30 & Latitude <= 44 &
+#           Longitude >= -12 & Longitude <= 40)
+
+#sPlot_traits_woodiness <- traits_data %>% #création d'un tableau avec les valeurs de traits et les epèces ligneuses
+#  select("scrubbed_species_binomial", "trait_name", "trait_value")%>%
+#  filter(trait_name == "whole plant woodiness") #on choisit la valeur de trait "whole plant woodiness" pour discriminer les espèces ligneuses des herbacées
+#sPlot_traits_woodiness <- sPlot_traits_woodiness %>%
+#  rename(Species = scrubbed_species_binomial)
+#sPlot_SA_Med_woodiness <- merge(sPlot_SA_Med, sPlot_traits_woodiness, by = "Species")
+#sPlot_woodiness <- sPlot_SA_Med_woodiness %>%
+#  filter(trait_value %in% c("woody")) #on filtre pour la valeur "woody" pour garder que les ligneuses
+#sPlot_woodiness_clean <- sPlot_woodiness %>% distinct(PlotObservationID, Species, Original_abundance, Latitude, Longitude, .keep_all = TRUE)
+#sPlot_woodiness_clean$Original_species=NULL
+#sPlot_woodiness_clean$Abundance_scale=NULL
+#sPlot_woodiness_clean$X=NULL #création du tableau final
+#write.csv(sPlot_woodiness, "sPlot_woodiness.csv")
+
+```
+<br>
+
+# Évaluation des taux de caractérisation des communautés ligneuses méditerranéens
+
+<br>
+```{r, include = TRUE, results='hide'}
+species_vector <- unique(data_fr_sp$Species) #nom des espèces décrites
+sites_species_matrix_woodiness <- table(sPlot_woodiness_clean$PlotObservationID, sPlot_woodiness_clean$Species) #création d'une matrice site-espèce
+described_species_matrix_woodiness <- sites_species_matrix_woodiness[, colnames(sites_species_matrix_woodiness) %in% species_vector] #création d'une matrice site-espèce décrites sous-échantillon)
+total_species_sum_woodiness <- rowSums(sites_species_matrix_woodiness)
+described_species_sum_woodiness <- rowSums(described_species_matrix_woodiness)
+species_percentage_woodiness <- described_species_sum_woodiness / total_species_sum_woodiness * 100 #calcul des pourcentage d'espèces décrites dans les communautés
+sPlot_woodiness_clean$Species_Percentage <- species_percentage_woodiness[match(sPlot_woodiness_clean$PlotObservationID, names(species_percentage_woodiness))]
+sPlot_woodiness_clean$Species_Percentage
+
+#species_med <- read.csv("species_frequency_woodiness_TCD.csv")
+species_med <- species_med %>%
+  dplyr::select(all_species, total_occurrence, X.1) %>%
+  rename(Species=all_species,
+         commentaire=X.1)
+species_med_clean <- species_med %>%
+  dplyr::filter(is.na(commentaire) | commentaire == "")
+write.csv(species_med_clean, "species_med_clean.csv")
+
+sPlot_percent_woodiness <- sPlot_woodiness_clean %>% #Création d'un dataframe contenant les pourcentages et les coordonnées GPS (QGIS)
+  dplyr::select(Species, Latitude, Longitude, Species_Percentage) %>%
+  mutate(
+    Latitude = round(Latitude, 3),
+    Longitude = round(Longitude, 3)
+  ) %>%
+  distinct() %>%
+  dplyr::filter(Species %in% species_med_clean$Species) %>%
+  group_by(Latitude, Longitude) %>%
+  summarise(
+    count = n_distinct(Species), #compte les espèces uniques par groupe
+    all_species = toString(unique(Species)), #concaténation
+    Avg_Species_Percentage = mean(Species_Percentage, na.rm = TRUE) #Pourcentage moyen
+  )
+
+```
+```{r, fig.align='center'}
+#Création de la carte
+sPlot_sf <- st_as_sf(sPlot_percent_woodiness, coords = c("Longitude", "Latitude"), crs = 4326)
+
+ggplot(sPlot_sf) +
+  annotation_map_tile(type = "osm", zoom = 0, alpha = 0.5) + # Ajoute un fond de carte
+  aes(colour = Avg_Species_Percentage) +
+  geom_sf(size = 1.2) +
+  scale_color_gradient(low = "#ECDEC0", high = "#D31212") +
+  labs(colour = "%",
+       title = "Évaluation des taux de caractérisation des communautés ligneuses") + # Personnalise la légende
+  theme_minimal()
+
+#Densité espèces décrites
+ggplot(sPlot_percent_woodiness) +
+  aes(x = Avg_Species_Percentage) +
+  geom_density(adjust = 0.7, fill = "#0F440F") +
+  labs(
+    x = "Pourcentage d'espèce décrite au sein de chaque communauté",
+    y = "Densité",
+    title = "Densité du nombre d'espèce décrite au sein de chaque communauté (%)",
+    subtitle = "Bassin méditerranéen"
+  ) +
+  theme_light() +
+  theme(
+    plot.title = element_text(size = 16L,
+                              face = "bold",
+                              hjust = 0.5),
+    axis.title.x = element_text(face = "italic"),
+    axis.title.y = element_text(face = "italic")
+  )
+
+```
+<br>
+Dans l'étude des communautés végétales, ici celles composées d'espèces ligneuses méditerranéennes, il est crucial d'évaluer l'occurrence des différentes espèces. Cela permet d'identifier les espèces prédominantes qui caractérisent le paysage méditerranéen ainsi que celles moins répandues, fournissant des informations essentielles sur la biodiversité et la structure des communautés végétales dans cette région biogéographique.
+<br>
+```{r, fig.align='center'}
+setwd("C:/R/STAGE/")
+species_percentage <- read.csv("sPlot_percent_woodiness.csv")
+sPlot_separated <- species_percentage %>%
+  separate_rows(all_species, sep = ",") %>%
+  mutate(all_species = trimws(all_species)) 
+species_frequency <- sPlot_separated %>%
+  count(all_species, name = "total_occurrence") %>%
+  arrange(desc(total_occurrence))
+
+med_occurrence <- median(species_frequency$total_occurrence)
+species_frequency$group <- ifelse(species_frequency$total_occurrence > med_occurrence, "Haute Occurrence", "Basse Occurrence")
+
+ggplot(species_frequency) +
+  aes(x = reorder(all_species, total_occurrence), y = total_occurrence, fill = total_occurrence) +
+  geom_col() +
+  coord_flip() +
+  facet_wrap(~group, scales = "free_y") +
+  scale_fill_gradient(low = "#b2c2bf", high = "#0F440F") + # Vert sauge à vert forêt
+  labs(x = "Espèces", y = "Occurrence", title = "Occurrence par espèce") +
+  theme_light() +
+  theme(axis.text.y = element_text(size = 10, angle = 0, hjust = 1),
+        plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+        axis.title.y = element_text(face = "italic"),
+        axis.title.x = element_text(face = "italic"))
+
+```
+<br>
+L'analyse des communautés végétales méditerranéennes révèle une prédominance marquée de certaines espèces telles que _Quercus ilex_ et _Quercus pubescent_, ainsi que _Pistacia lentiscus_, _Fraxinus ornus_ et _Phillyrea latifolia_.  Par ailleurs, des espèces arbustives comme _Juniperus communis_, _Arbutus unedo_, ou _Erica arborea_ se distinguent également, soulignant leur importance dans la configuration des paysages. L'étude à l'échelle du bassin méditerranéen met en lumière la distinction entre espèces généralistes et espèces spécialisées, ces dernières étant adaptées à des **niches écologiques** particulières caractérisées par des contraintes environnementales spécifiques telles que la **sécheresse, les incendies ou la disponibilité en eau**.
+<br>
+
+# Les indices de diversité
+
+<br>
+
+## Définir les communautés et les nommer
+
+<br>
+```{r, fig.align='center'}
+species_community <- unique(species_frequency$all_species)
+community <- sPlot_woodiness_clean[sPlot_woodiness_clean$Species %in% species_community, ]
+#attribuer des noms à chaque communautés
+community <- community %>%
+  dplyr::select(Species, PlotObservationID, Original_abundance, Relative_cover, TraitCoverage_cover, Species_richness, Species_Percentage,Latitude, Longitude)%>%
+  group_by(Latitude, Longitude, PlotObservationID) %>%
+  mutate(Community_Name = paste0("community_", cur_group_id())) %>%
+  ungroup() 
+#Résumé des communautés
+community_summary <- community %>%
+  group_by(Community_Name) %>%
+  summarise(
+    Number_of_Species = n_distinct(Species),
+    Average_Abundance = mean(Original_abundance, na.rm = TRUE),
+    Average_Relative_Cover = mean(Relative_cover, na.rm = TRUE),
+    Average_Species_Richness = mean(Species_richness, na.rm = TRUE),
+    Average_Species_Percentage = mean(Species_Percentage, na.rm = TRUE)
+  )
+#Les espèces par communautés
+species_in_community <- community %>%
+  dplyr::select(Community_Name, Species, Original_abundance, Relative_cover) %>%
+  arrange(Community_Name, Species)
+
+#Redefinit les communautés en fonction de l'habitat + conditions abiotiques
+selected_columns <- c("PlotObservationID", "Latitude", "Longitude", "Grassland", "Forest", "Shrubland", "Wetland", "SoilClim_PC1", "SoilClim_PC2") #PC1 + PC2 ->
+sPlot_header_selected <- sPlot_header[, selected_columns]
+community_environment <- merge(community, sPlot_header_selected, by = c("PlotObservationID", "Latitude", "Longitude"))
+community_environment <- na.omit(community_environment)
+
+#données de communautés avec les noms de communautés
+community_name <- community_environment %>%
+  group_by(Latitude, Longitude) %>%
+  summarise(Species = list(Species),
+            Abundance = list(Original_abundance),
+            Grassland = first(Grassland), 
+            Forest = first(Forest),
+            Shrubland = first(Shrubland),
+            Wetland = first(Wetland),
+            SoilClim_PC1 = first(SoilClim_PC1),
+            SoilClim_PC2 = first(SoilClim_PC2),
+            .groups = 'drop') %>%
+  rowwise() %>%
+  mutate(Ranked_Species = list(Species[order(-unlist(Abundance))][1:min(2, length(Species))])) %>%
+  ungroup() %>%
+  mutate(Community_Name = sapply(Ranked_Species, function(x) paste(x, collapse=" "))) %>%
+  dplyr::select(-Species, -Abundance, -Ranked_Species)
+#Visualisation des communautés proches (milieu + sol + climat)
+data_cluster <- community_name %>%
+  mutate(SoilClim_PC1_Rounded = round(SoilClim_PC1, 1),
+         SoilClim_PC2_Rounded = round(SoilClim_PC2, 1)) %>%
+  dplyr::select(Grassland, Forest, Shrubland, Wetland, SoilClim_PC1_Rounded, SoilClim_PC2_Rounded)
+
+dm <- dist(data_cluster, method = "euclidean") 
+#Calcul de la matrice de distance
+hc <- hclust(dm, method = "ward.D2") #clustering hiérarchique
+plot(hc, hang = -1, cex = 0.6, main = "Dendrogramme du Clustering Hiérarchique")
+#Calcul pour le nombre de cluster optimal
+#Somme des carrés intra clusters
+wss <- sapply(1:100, function(k) {
+  kmeans(data_cluster, centers = k, nstart = 20, iter.max = 50)$tot.withinss
+})
+
+df_nbclust <- data.frame(x = 1:100, y = wss)
+ggplot(df_nbclust, aes(x = x, y = y)) +
+  geom_line() +                   # Tracer une ligne
+  geom_vline(xintercept = 10, linetype = 2) + #k = 10 
+  labs(x = "Nombre de clusters", y = "Somme des carrés intra-cluster ") +
+  theme_minimal()  
+k <- 10
+cluster_assignments <- cutree(hc, k)
+community_name$Community_ID <- cluster_assignments
+write.csv(community_name, 'community_name.csv')
+couleurs <- c("#8B0000", "#B22222", "#DC143C", "#FF4500", "#FF8C00",
+              "#FFFF00", "#ADFF2F", "#7FFF00", "#32CD32", "#006400") #10
+community_name_sf <- st_as_sf(community_name, coords = c("Longitude", "Latitude"), crs = 4326)
+ggplot() +
+  annotation_map_tile(type = "osm", zoom = 0, alpha = 0.5) + 
+  geom_sf(data = community_name_sf, aes(color = as.factor(Community_ID))) +
+  scale_color_manual(values = couleurs) +
+  theme_bw()
+
+#Associer à chaque communauté l'habitat correspondant selon la carte Corine Land Cover
+#Charger le fichier raster Corine land cover
+CLC <- raster("C:/Qgis/U2018_CLC2018_V2020_20u1.tif")
+community_vector <- community_name %>%
+  dplyr::select(Latitude, Longitude, Community_ID) 
+coordinates(community_vector) <- ~Longitude+Latitude
+proj4string(community_vector) <- CRS("+init=epsg:4326")
+community_vector <- spTransform(community_vector, CRS(projection(CLC))) #match with the CLC raster's CRS
+CLC_values <- raster::extract(CLC, community_vector)
+community_vector@data$CLC <- CLC_values
+community_vector_sf <- st_as_sf(community_vector)
+community_vector_sf_GPS <- st_transform(community_vector_sf, crs = 4326)
+coords <- st_coordinates(st_geometry(community_vector_sf_GPS))
+community_vector_df <- as.data.frame(community_vector_sf_GPS)
+community_vector_df$Latitude <- coords[, "Y"]
+community_vector_df$Longitude <- coords[, "X"]
+community_vector_df <- community_vector_df %>% dplyr::select(-geometry)
+CLC_count <- community_vector_df %>%
+  group_by(Community_ID, CLC) %>%
+  summarise(Count = n(), .groups = 'drop')
+Total_counts <- CLC_count %>%
+  group_by(Community_ID) %>%
+  summarise(Total = sum(Count), .groups = 'drop')
+CLC_percentages <- CLC_count %>% #travailler ensuite sur QGIS
+  left_join(Total_counts, by = "Community_ID") %>%
+  mutate(Percentage = (Count / Total) * 100) %>%
+  dplyr::select(Community_ID, CLC, Percentage)
+#st_write(community_vector_sf, "community_vector.shp")
+
+#Maintenant pour chaque Community_ID, la liste des espèces associées en %
+community_index_percentage_species <- merge(community, community_name[, c("Latitude", "Longitude", "Community_ID")], by = c("Latitude", "Longitude"))
+community_index_percentage_species$Species_Percentage=NULL
+#Calcul des moyennes pour chaque Community_ID
+community_mean <- community_index_percentage_species %>%
+  group_by(Community_ID) %>%
+  summarise(
+    Mean_TraitCoverage_cover = mean(TraitCoverage_cover, na.rm = TRUE),
+    Mean_Species_richness = mean(Species_richness, na.rm = TRUE)
+  )
+#Calcul de l'abondance totale par Community_ID et par espèce
+total_abundance_by_community <- community_index_percentage_species %>%
+  group_by(Community_ID) %>%
+  summarise(Total_abundance = sum(Original_abundance, na.rm = TRUE))
+
+abundance_totals <- community_index_percentage_species %>%
+  left_join(total_abundance_by_community, by = "Community_ID") %>%
+  group_by(Community_ID, Species) %>%
+  summarise(
+    Species_abundance = sum(Original_abundance, na.rm = TRUE),
+    Total_abundance = first(Total_abundance),  # S'assurer que Total_abundance est disponible pour chaque ligne
+    .groups = 'drop'
+  )
+#Calcul du pourcentage de chaque espèce dans sa communauté
+abundance_totals <- abundance_totals %>%
+  mutate(Species_Percentage = (Species_abundance / Total_abundance) * 100)
+
+top_species_by_community <- abundance_totals %>%
+  arrange(Community_ID, desc(Species_Percentage)) %>%
+  group_by(Community_ID) %>%
+  slice_max(order_by = Species_Percentage, n = 5) %>%
+  ungroup()
+
+species_community_1 <- top_species_by_community %>%
+  dplyr::filter(Community_ID==1)
+species_community_2 <- top_species_by_community %>%
+  dplyr::filter(Community_ID==2)
+species_community_3 <- top_species_by_community %>%
+  dplyr::filter(Community_ID==3)
+species_community_4 <- top_species_by_community %>%
+  dplyr::filter(Community_ID==4)
+species_community_5 <- top_species_by_community %>%
+  dplyr::filter(Community_ID==5)
+species_community_6 <- top_species_by_community %>%
+  dplyr::filter(Community_ID==6)
+species_community_7 <- top_species_by_community %>%
+  dplyr::filter(Community_ID==7)
+species_community_8 <- top_species_by_community %>%
+  dplyr::filter(Community_ID==8)
+species_community_9 <- top_species_by_community %>%
+  dplyr::filter(Community_ID==9)
+species_community_10 <- top_species_by_community %>%
+  dplyr::filter(Community_ID==10)
+
+combined_species <- bind_rows(
+  species_community_1,
+  species_community_2,
+  species_community_3,
+  species_community_4,
+  species_community_5,
+  species_community_6,
+  species_community_7,
+  species_community_8,
+  species_community_9,
+  species_community_10
+)
+
+couleurs <- c("#8B0000", "#B22222", "#DC143C", "#FF4500", "#FF8C00",
+              "#FFFF00", "#ADFF2F", "#7FFF00", "#32CD32", "#006400")
+
+ggplot(combined_species, aes(x = Species, y = Species_Percentage, fill = as.factor(Community_ID))) +
+  geom_col() +
+  scale_fill_manual(values = couleurs, name = "Identifiant de communauté") +
+  theme_minimal() +
+  labs(x = "Espèces", y = "Pourcentage d'espèce composant la communauté", fill = "Identifiants de communauté") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), axis.title.y = element_text(margin = margin(r = 20, unit = "pt"))) +
+  facet_wrap(~ Community_ID, scales = "free_x", ncol = 5)
+
+```
+
+<br>
+
+Dans un premier temps, nous avons chercher à identifier et analyser les communautés végétales à partir de données de fréquence des espèces. Nous avons d'abord extrait un ensemble unique d'espèces à partir de notre base de données initiale, qui répertorie la fréquence de toutes les espèces observées. Cet ensemble a servi à filtrer les observations dans notre base de données de la végétation, ne conservant que les entrées correspondant aux espèces identifiées. Nous avons examiné les espèces présentes dans chaque communauté, en notant leur abondance originale et leur couverture relative. Cette analyse a permis d'identifier les espèces dominantes et leur prévalence relative au sein de chaque communauté. Pour affiner notre compréhension des communautés végétales, nous avons intégré des données sur l'habitat et les conditions abiotiques en associant à chaque communauté des informations sur le type d'habitat (par exemple, prairies, forêts, broussailles, zones humides) et sur des facteurs environnementaux clés résumés par les composantes principales de variables de sol et climatiques^[Bruelheide et al., 2019]. Cette approche nous a permis de **relier les caractéristiques des communautés végétales à des facteurs environnementaux spécifiques**, offrant des informations sur les relations entre la composition des communautés, les habitats et les conditions abiotiques. Ensuite, une matrice de distance euclidienne a été calculée pour visualiser les proximités entre communautés. La formule de la distance euclidienne entre deux points $P$ et $Q$ dans un espace euclidien à $n$ dimensions est donnée par (Deza et al., 2016):
+
+$$
+d(P, Q) = \sqrt{(q_1 - p_1)^2 + (q_2 - p_2)^2 + \cdots + (q_n - p_n)^2}
+$$
+
+où $p_i$ et $q_i$ sont les coordonnées des points dans l'espace à $n$ dimensions.
+
+Nous avons utilisé le clustering hiérarchique pour grouper les communautés basées sur ces distances. La méthode de Ward (utilisé pour le clustering hiérarchique) calcule l'augmentation de la variance totale intra-cluster \(\Delta(\text{Var})\) lors de la fusion de deux clusters \(C_i\) et \(C_j\) comme suit (Ward, 1963):
+
+$$
+\Delta(\text{Var}) = \frac{|C_i| \cdot |C_j|}{|C_i| + |C_j|} \cdot ||\mu_i - \mu_j||^2
+$$
+
+où :
+- \(|C_i|\) et \(|C_j|\) représentent les tailles des clusters \(C_i\) et \(C_j\),
+- \(\mu_i\) et \(\mu_j\) sont les centres (moyennes) des clusters \(C_i\) et \(C_j\),
+- \(||\mu_i - \mu_j||^2\) est le carré de la distance euclidienne entre les centres des deux clusters.
+
+
+Pour déterminer le nombre optimal de clusters, nous avons appliqué la méthode du coude en analysant la somme des carrés intra-cluster. La somme des carrés intra-cluster (WSS) pour un cluster $k$ est donnée par (McQueen, 1967):
+
+$$
+WSS = \sum_{i=1}^{k} \sum_{x \in C_i} ||x - \mu_i||^2
+$$
+
+où $C_i$ est le $i$-ème cluster, $x$ est un point dans le cluster, et $\mu_i$ est le centre du cluster $C_i$.
+
+Ce processus a permis d'assigner chaque communauté à un cluster spécifique, révélant ainsi des groupements naturels et facilitant l'étude des relations écologiques.
+
+<br>
+
+Dans un deuxième temps, nous avons associé chaque communauté végétale à un habitat spécifique en utilisant la classification Corine Land Cover (CLC). Nous avons superposé les coordonnées géographiques des communautés avec la carte CLC pour **identifier l'habitat correspondant à chaque localisation**. Par la suite, nous avons calculé le pourcentage d'occurrence de chaque type d'habitat au sein des communautés, permettant ainsi de **déterminer la prévalence des différents habitats**. Cette méthode offre une vue détaillée de l'interaction spatiale entre les communautés végétales et leur environnement, enrichissant notre compréhension des écosystèmes étudiés.
+
+<br>
+
+Finalement, nous avons analysé la **composition et l'abondance des espèces au sein de chaque communauté végétale**, en intégrant des données géographiques pour associer chaque communauté à un identifiant unique. Le pourcentage de chaque espèce au sein de sa communauté a été déterminé, permettant d'identifier les **espèces dominantes**.
+
+<br>
+
+## Calculer la distribution de l'abondance des espèces
+
+<br>
+
+**La plupart des communautés contiennent quelques espèces communes et de nombreuses espèces rares**. Le nombre d'espèces ($F_n$) ayant chacune $n$ individus peut être exprimé comme suit : $F_n = a \frac{x^n}{n} \space pour \space n>0$ (Fischer et al., 1943).
+
+<br>
+
+```{r, fig.align='center'}
+ggplot(community_summary, aes(x = Average_Abundance, y = Number_of_Species)) +
+  geom_point(aes(color = Average_Species_Richness), alpha = 0.6, size = 3) +
+  geom_smooth(method = "loess", formula = y ~ x, se = T, color = "red", linewidth = 1) +
+  scale_color_viridis_c(name = "Richesse spécifique moyenne", option = "H") + 
+  labs(x = "Abondance moyenne par espèce", y = "Nombre d'espèces",
+       title = "Distribution de l'abondance des espèces") +
+  theme_light() +
+  theme(axis.text.y = element_text(size = 10, angle = 0, hjust = 1),
+        plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+        axis.title.y = element_text(face = "italic"),
+        axis.title.x = element_text(face = "italic")) + 
+  theme(legend.position = "bottom")
+
+ggplot(community_summary, aes(x = Average_Abundance, y = Number_of_Species)) +
+  geom_point(aes(color = Average_Species_Richness), alpha = 0.6, size = 3) +
+  geom_smooth(method = "loess", formula = y ~ x, se = T, color = "red", linewidth = 1) +
+  scale_x_log10(name = "Abondance moyenne par espèce (log)", limits = c(1, NA)) +  # Transformation log pour l'axe X
+  scale_y_log10(name = "Nombre d'espèces (log)", limits = c(1, NA)) +
+  scale_color_viridis_c(name = "Richesse spécifique moyenne", option = "H") + 
+  labs(x = "Abondance moyenne par espèce", y = "Nombre d'espèces",
+       title = "Distribution de l'abondance des espèces") +
+  theme_light() +
+  theme(axis.text.y = element_text(size = 10, angle = 0, hjust = 1),
+        plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+        axis.title.y = element_text(face = "italic"),
+        axis.title.x = element_text(face = "italic")) + 
+  theme(legend.position = "bottom")
+
+
+```
+<br>
+
+Pour représenter la distribution de l'abondance des espèces, une méthode pour l'ajustement lisse est le **LOESS** (Locally Estimated Scatterplot Smoothing), également connu sous le nom de LOWESS (Locally Weighted Scatterplot Smoothing). Le principe de LOESS est de créer une courbe de tendance qui capture les motifs locaux dans les données en ajustant de multiples régressions simples dans des voisinages restreints de chaque point d'observation. Pour chaque point d'observation pour lequel on souhaite prédire une valeur ajustée, LOESS sélectionne un ensemble de points voisins basé sur leur distance à ce point central. La taille de ce voisinage est contrôlée par un paramètre, souvent appelé la "bande passante", qui détermine la proportion de l'ensemble de données à inclure dans chaque ajustement local. Pour le voisinage de chaque point, une régression linéaire simple est ajustée, où les points les plus proches du point central ont plus de poids dans l'ajustement que ceux plus éloignés. Cette pondération assure que la courbe ajustée est plus influencée par les points situés à proximité immédiate. Les étapes d'ajustement local sont répétées pour chaque point d'observation dans les données, résultant en une **série de prédictions qui, ensemble, forment une courbe lisse qui suit la tendance des données**.
+Notre analyse visuelle, renforcée par une transformation logarithmique, suggère que la distribution de l'abondance des espèces au sein des communautés écologiques suit effectivement les séries logarithmiques proposées par Fisher. Comme il l'avait énoncé, "la plupart des communautés contiennent quelques espèces communes et de nombreuses espèces rares". En concordance avec sa théorie, nous avons observé que le nombre d'espèces $F_n$, ayant $n$ individus chacune peut être exprimé comme : $F_n = a \frac{x^n}{n} \space pour \space n>0$ pour $n>0$, où la distribution indique une prévalence de nombreuses espèces rares comparativement à quelques-unes plus communes. 
+
+<br>
+
+## Calcul de la diversité alpha
+
+<br>
+
+La diversité $\alpha$ c'est le nombre d'espèces trouvées à l'échelle locale (c'est-à-dire au sein d'un habitat ou d'un site local). La diversité $\alpha$ est l'échelle à laquelle prédominent les processus traditionnellement étudiés en écologie des communautés, tels que la limitation de la dispersion, le microclimat et les interactions entre les espèces (McGill et al., 2019).
+
+<br>
+
+```{r, fig.align='center'}
+filtered_data <- community_environment %>%
+  dplyr::select(PlotObservationID, Species, Original_abundance) %>%
+  group_by(PlotObservationID)
+
+
+community_matrix <- xtabs(Original_abundance ~ PlotObservationID + Species, data = filtered_data)
+shannon_diversity <- diversity(community_matrix, index = "shannon")
+shannon_df <- data.frame(PlotObservationID = names(shannon_diversity), a_diversity = shannon_diversity)
+shannon_df$PlotObservationID <- as.numeric(shannon_df$PlotObservationID)
+community_environment <- community_environment %>%
+  left_join(shannon_df, by = "PlotObservationID")
+
+alpha_diversity <- shannon_df %>%
+  left_join(dplyr::select(community_index_percentage_species, PlotObservationID, Community_ID), 
+            by = "PlotObservationID")
+alpha_diversity_unique <- alpha_diversity %>% distinct()
+
+shannon_per_community <- alpha_diversity %>%
+  group_by(Community_ID) %>%
+  summarise(Mean_a_diversity = mean(a_diversity, na.rm = TRUE))
+
+
+diversity_info <- merge(shannon_per_community, community_mean, by = "Community_ID")
+diversity_info$Community_ID <- factor(diversity_info$Community_ID)
+
+ggplot(diversity_info) +
+ aes(x = Community_ID, y = Mean_a_diversity, fill = Mean_Species_richness) +
+ geom_col() +
+ scale_fill_distiller(palette = "RdYlGn", direction = 1) +
+ labs(x = "Identifiant de communauté", 
+ y = "Diversité alpha (indice de Shannon)", fill = "Richesse spécifique") +
+ theme_minimal() +
+ theme(plot.title = element_text(size = 15L, 
+ face = "bold", hjust = 0.5), axis.title.y = element_text(size = 10L), axis.title.x = element_text(size = 10L))
+
+```
+<br>
+
+Nous avons analysé la diversité spécifique au sein de différentes communautés écologiques en utilisant l'indice de diversité de Shannon. La collecte des données a été effectuée à travers différents plots d'observation, chacun étant identifié par un PlotObservationID unique. Pour chaque plot, les espèces observées (Species) ainsi que leur abondance originale (Original_abundance) ont été enregistrées.
+
+La matrice des communautés a été construite à partir des données filtrées, en associant l'abondance originale de chaque espèce à son plot d'observation respectif. Sur cette base, l'indice de diversité de Shannon a été calculé pour chaque plot, fournissant une mesure quantitative de la diversité alpha - un indicateur de la richesse et de l'équité des espèces au sein des plots.
+
+L'indice de Shannon est défini mathématiquement comme suit :
+
+$$
+H' = -\sum_{i=1}^{R} p_i \ln(p_i)
+$$
+
+où $H'$ est l'indice de diversité de Shannon, $R$ est le nombre total d'espèces dans la communauté, et $p_i$ est la proportion de l'espèce $i$ par rapport au total des individus. Cette formule prend en compte non seulement la richesse spécifique, mais aussi l'équitabilité dans la distribution des abondances des espèces (Magurran, 1988).
+
+Nous avons également examiné la diversité alpha en relation avec les types de communauté (de 1 à 10), permettant une comparaison entre les communautés. Nous avons également regardé les richesses spécifiques moyennes afin de mettre en lumière des communauté qui abrite peu d'espèces (communauté 1) comparé à la valeur de la diversité alpha, reflétant une meilleure équitabilité dans la distribution des espèces.
+
+<br>
+
+
+
+[^1]: Dans le contexte de sPlot, un ensemble de données mondiales sur les parcelles de végétation, SoilClim_PC1 et PC2 représentent les deux premières composantes principales dérivées d'une analyse en composantes principales (ACP) de 30 variables climatiques et pédologiques. Cette ACP couvre l'ensemble de l'espace environnemental de tous les habitats terrestres de la planète. Les deux premières composantes principales, PC1 et PC2, représentent une part importante de la variation environnementale totale, la PC1 expliquant 47 % et la PC2 23 % de la variance. Ces composantes sont utilisées pour organiser l'espace environnemental en une grille de 100 × 100, ce qui facilite l'échantillonnage équilibré des parcelles de végétation dans différentes conditions environnementales. La méthodologie vise à garantir que l'ensemble de données rééchantillonnées représente l'intégralité du gradient environnemental couvert par la base de données sPlot originale en maximisant la variabilité par rapport à la représentativité lors de la sélection des parcelles de végétation pour l'analyse.
