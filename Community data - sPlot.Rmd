@@ -1,10 +1,14 @@
 ---
 title: "Community data - sPlot"
 author: "Pierre Bouchet"
-date: "2024-03-15"
-output: html_document
+date: "2024-03-28"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
 ---
-# Préparation des données et manipulation des données
+
+# 1. Préparation des données et manipulation des données
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -39,9 +43,13 @@ species_med <- read.csv("species_frequency_woodiness_TCD.csv")
 sPlot_percent <- read.csv("sPlot_percent_woodiness.csv")
 
 ```
+
 <br>
+
 Dans le cadre de notre méthodologie scientifique, nous avons procédé à la manipulation des données afin de constituer deux bases de données distinctes : l'une dédiée aux traits des espèces ligneuses de la région méditerranéenne et l'autre aux communautés de ces mêmes espèces. Pour ce faire, nous avons intégré les données de communautés provenant de la base _sPlot_ avec les données de traits disponibles dans la base _BIEN_. Afin d'enrichir notre collection de données de traits, pour lesquelles certaines informations étaient manquantes, nous avons également fait appel à la base de données _TRY_, une démarche qui nous a permis de compléter efficacement notre ensemble de données. Avant l'intégration des données dans notre méthodologie, il est important de noter que les informations au sein des bases de données ont été préalablement standardisées. Cette étape cruciale assure l'uniformité et la qualité des données, facilitant ainsi leur analyse comparative et leur intégration.
+
 <br>
+
 ```{r, include=FALSE}
 #sPlot_SA_GPS <- merge(sPlot_species_abundance, sPlot_header[, c("PlotObservationID", "Latitude", "Longitude")], by = "PlotObservationID") #Dataframe avec ajout de latitude et longitude
 #sPlot_SA_GPS$X = NULL
@@ -77,7 +85,7 @@ Dans le cadre de notre méthodologie scientifique, nous avons procédé à la ma
 ```
 <br>
 
-# Évaluation des taux de caractérisation des communautés ligneuses méditerranéens
+# 2. Évaluation des taux de caractérisation des communautés ligneuses méditerranéens
 
 <br>
 ```{r, include = TRUE, results='hide'}
@@ -97,7 +105,7 @@ species_med <- species_med %>%
          commentaire=X.1)
 species_med_clean <- species_med %>%
   dplyr::filter(is.na(commentaire) | commentaire == "")
-write.csv(species_med_clean, "species_med_clean.csv")
+#write.csv(species_med_clean, "species_med_clean.csv")
 
 sPlot_percent_woodiness <- sPlot_woodiness_clean %>% #Création d'un dataframe contenant les pourcentages et les coordonnées GPS (QGIS)
   dplyr::select(Species, Latitude, Longitude, Species_Percentage) %>%
@@ -115,6 +123,9 @@ sPlot_percent_woodiness <- sPlot_woodiness_clean %>% #Création d'un dataframe c
   )
 
 ```
+
+<br>
+
 ```{r, fig.align='center'}
 #Création de la carte
 sPlot_sf <- st_as_sf(sPlot_percent_woodiness, coords = c("Longitude", "Latitude"), crs = 4326)
@@ -129,28 +140,27 @@ ggplot(sPlot_sf) +
   theme_minimal()
 
 #Densité espèces décrites
-ggplot(sPlot_percent_woodiness) +
+densite <- ggplot(sPlot_percent_woodiness) +
   aes(x = Avg_Species_Percentage) +
   geom_density(adjust = 0.7, fill = "#0F440F") +
   labs(
     x = "Pourcentage d'espèce décrite au sein de chaque communauté",
     y = "Densité",
-    title = "Densité du nombre d'espèce décrite au sein de chaque communauté (%)",
-    subtitle = "Bassin méditerranéen"
+    title = "",
+    subtitle = ""
   ) +
-  theme_light() +
-  theme(
-    plot.title = element_text(size = 16L,
-                              face = "bold",
-                              hjust = 0.5),
-    axis.title.x = element_text(face = "italic"),
-    axis.title.y = element_text(face = "italic")
-  )
-
+ theme_minimal() +
+ theme(plot.title = element_text(size = 14L, face = "bold", hjust = 0.5), axis.title.y =  element_text(size = 10L), axis.title.x = element_text(size = 10L))
+#ggsave("densite.jpg", plot = densite, width = 10, height = 8, dpi = 300)
+print(densite)
 ```
+
 <br>
-Dans l'étude des communautés végétales, ici celles composées d'espèces ligneuses méditerranéennes, il est crucial d'évaluer l'occurrence des différentes espèces. Cela permet d'identifier les espèces prédominantes qui caractérisent le paysage méditerranéen ainsi que celles moins répandues, fournissant des informations essentielles sur la biodiversité et la structure des communautés végétales dans cette région biogéographique.
+
+Dans l'étude des communautés végétales, ici celles composées d'espèces ligneuses méditerranéennes, il est crucial d'évaluer **l'occurrence des différentes espèces**. Cela permet d'identifier les espèces prédominantes qui caractérisent le paysage méditerranéen ainsi que celles moins répandues, fournissant des informations essentielles sur la biodiversité et la structure des communautés végétales dans cette région biogéographique.
+
 <br>
+
 ```{r, fig.align='center'}
 setwd("C:/R/STAGE/")
 species_percentage <- read.csv("sPlot_percent_woodiness.csv")
@@ -164,31 +174,33 @@ species_frequency <- sPlot_separated %>%
 med_occurrence <- median(species_frequency$total_occurrence)
 species_frequency$group <- ifelse(species_frequency$total_occurrence > med_occurrence, "Haute Occurrence", "Basse Occurrence")
 
-ggplot(species_frequency) +
+occurence <- ggplot(species_frequency) +
   aes(x = reorder(all_species, total_occurrence), y = total_occurrence, fill = total_occurrence) +
   geom_col() +
   coord_flip() +
   facet_wrap(~group, scales = "free_y") +
   scale_fill_gradient(low = "#b2c2bf", high = "#0F440F") + # Vert sauge à vert forêt
-  labs(x = "Espèces", y = "Occurrence", title = "Occurrence par espèce") +
-  theme_light() +
-  theme(axis.text.y = element_text(size = 10, angle = 0, hjust = 1),
-        plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
-        axis.title.y = element_text(face = "italic"),
-        axis.title.x = element_text(face = "italic"))
-
+  labs(x = "Espèces", y = "Occurrence", title = "", fill = "Occurrence") +
+  theme_minimal() +
+ theme(plot.title = element_text(size = 15L, face = "bold", hjust = 0.5), axis.title.y =  element_text(size = 10L), axis.title.x = element_text(size = 10L))
+#ggsave("occurence.jpeg", plot = occurence, width = 10, height = 8, dpi = 300)
+print(occurence)
 ```
+
 <br>
+
 L'analyse des communautés végétales méditerranéennes révèle une prédominance marquée de certaines espèces telles que _Quercus ilex_ et _Quercus pubescent_, ainsi que _Pistacia lentiscus_, _Fraxinus ornus_ et _Phillyrea latifolia_.  Par ailleurs, des espèces arbustives comme _Juniperus communis_, _Arbutus unedo_, ou _Erica arborea_ se distinguent également, soulignant leur importance dans la configuration des paysages. L'étude à l'échelle du bassin méditerranéen met en lumière la distinction entre espèces généralistes et espèces spécialisées, ces dernières étant adaptées à des **niches écologiques** particulières caractérisées par des contraintes environnementales spécifiques telles que la **sécheresse, les incendies ou la disponibilité en eau**.
-<br>
-
-# Les indices de diversité
 
 <br>
 
-## Définir les communautés et les nommer
+# 3. Les indices de diversité
 
 <br>
+
+## 3.1. Définir les communautés et les nommer
+
+<br>
+
 ```{r, fig.align='center'}
 species_community <- unique(species_frequency$all_species)
 community <- sPlot_woodiness_clean[sPlot_woodiness_clean$Species %in% species_community, ]
@@ -262,8 +274,8 @@ k <- 10
 cluster_assignments <- cutree(hc, k)
 community_name$Community_ID <- cluster_assignments
 write.csv(community_name, 'community_name.csv')
-couleurs <- c("#8B0000", "#B22222", "#DC143C", "#FF4500", "#FF8C00",
-              "#FFFF00", "#ADFF2F", "#7FFF00", "#32CD32", "#006400") #10
+couleurs <- c("#ca0020", "#cc6300", "#fdbf6f", "#ff6f0f", "#5cd052", 
+              "#a6cee3", "#1f78b4", "#33a02c", "#457428", "#2530c7") #10
 community_name_sf <- st_as_sf(community_name, coords = c("Longitude", "Latitude"), crs = 4326)
 ggplot() +
   annotation_map_tile(type = "osm", zoom = 0, alpha = 0.5) + 
@@ -367,22 +379,23 @@ combined_species <- bind_rows(
   species_community_10
 )
 
-couleurs <- c("#8B0000", "#B22222", "#DC143C", "#FF4500", "#FF8C00",
-              "#FFFF00", "#ADFF2F", "#7FFF00", "#32CD32", "#006400")
+couleurs <- c("#ca0020", "#cc6300", "#fdbf6f", "#ff6f0f", "#5cd052", 
+              "#a6cee3", "#1f78b4", "#33a02c", "#457428", "#2530c7")
 
-ggplot(combined_species, aes(x = Species, y = Species_Percentage, fill = as.factor(Community_ID))) +
+species_in_community <- ggplot(combined_species, aes(x = Species, y = Species_Percentage, fill = as.factor(Community_ID))) +
   geom_col() +
   scale_fill_manual(values = couleurs, name = "Identifiant de communauté") +
   theme_minimal() +
   labs(x = "Espèces", y = "Pourcentage d'espèce composant la communauté", fill = "Identifiants de communauté") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1), axis.title.y = element_text(margin = margin(r = 20, unit = "pt"))) +
   facet_wrap(~ Community_ID, scales = "free_x", ncol = 5)
-
+#ggsave("species_in_community.jpg", plot = species_in_community, width = 10, height = 8, dpi = 300)
+print(species_in_community)
 ```
 
 <br>
 
-Dans un premier temps, nous avons chercher à identifier et analyser les communautés végétales à partir de données de fréquence des espèces. Nous avons d'abord extrait un ensemble unique d'espèces à partir de notre base de données initiale, qui répertorie la fréquence de toutes les espèces observées. Cet ensemble a servi à filtrer les observations dans notre base de données de la végétation, ne conservant que les entrées correspondant aux espèces identifiées. Nous avons examiné les espèces présentes dans chaque communauté, en notant leur abondance originale et leur couverture relative. Cette analyse a permis d'identifier les espèces dominantes et leur prévalence relative au sein de chaque communauté. Pour affiner notre compréhension des communautés végétales, nous avons intégré des données sur l'habitat et les conditions abiotiques en associant à chaque communauté des informations sur le type d'habitat (par exemple, prairies, forêts, broussailles, zones humides) et sur des facteurs environnementaux clés résumés par les composantes principales de variables de sol et climatiques^[Bruelheide et al., 2019]. Cette approche nous a permis de **relier les caractéristiques des communautés végétales à des facteurs environnementaux spécifiques**, offrant des informations sur les relations entre la composition des communautés, les habitats et les conditions abiotiques. Ensuite, une matrice de distance euclidienne a été calculée pour visualiser les proximités entre communautés. La formule de la distance euclidienne entre deux points $P$ et $Q$ dans un espace euclidien à $n$ dimensions est donnée par (Deza et al., 2016):
+Dans un premier temps, nous avons chercher à identifier et analyser les communautés végétales à partir de données de fréquence des espèces. Nous avons d'abord extrait un ensemble unique d'espèces à partir de notre base de données initiale, qui répertorie la fréquence de toutes les espèces observées. Cet ensemble a servi à filtrer les observations dans notre base de données de la végétation, ne conservant que les entrées correspondant aux espèces identifiées. Nous avons examiné les espèces présentes dans chaque communauté, en notant leur abondance originale et leur couverture relative. Cette analyse a permis d'identifier les espèces dominantes et leur prévalence relative au sein de chaque communauté. Pour affiner notre compréhension des communautés végétales, nous avons intégré des données sur l'habitat et les conditions abiotiques en associant à chaque communauté des informations sur le type d'habitat (par exemple, prairies, forêts, broussailles, zones humides) et sur des facteurs environnementaux clés résumés par les composantes principales de variables de sol et climatiques^[Bruelheide et al., 2019]. Cette approche nous a permis de **relier les caractéristiques des communautés végétales à des facteurs environnementaux spécifiques**, offrant des informations sur les relations entre la composition des communautés, les habitats et les conditions abiotiques. Ensuite, une matrice de distance euclidienne a été calculée pour visualiser les proximités entre communautés. La formule de la distance euclidienne entre deux points $P$ et $Q$ dans un espace euclidien à $n$ dimensions est donnée par^[Deza et al., 2016]:
 
 $$
 d(P, Q) = \sqrt{(q_1 - p_1)^2 + (q_2 - p_2)^2 + \cdots + (q_n - p_n)^2}
@@ -390,7 +403,7 @@ $$
 
 où $p_i$ et $q_i$ sont les coordonnées des points dans l'espace à $n$ dimensions.
 
-Nous avons utilisé le clustering hiérarchique pour grouper les communautés basées sur ces distances. La méthode de Ward (utilisé pour le clustering hiérarchique) calcule l'augmentation de la variance totale intra-cluster \(\Delta(\text{Var})\) lors de la fusion de deux clusters \(C_i\) et \(C_j\) comme suit (Ward, 1963):
+Nous avons utilisé le clustering hiérarchique pour grouper les communautés basées sur ces distances. La méthode de Ward (utilisé pour le clustering hiérarchique) calcule l'augmentation de la variance totale intra-cluster \(\Delta(\text{Var})\) lors de la fusion de deux clusters \(C_i\) et \(C_j\) comme suit^[Ward, 1963]:
 
 $$
 \Delta(\text{Var}) = \frac{|C_i| \cdot |C_j|}{|C_i| + |C_j|} \cdot ||\mu_i - \mu_j||^2
@@ -401,8 +414,7 @@ où :
 - \(\mu_i\) et \(\mu_j\) sont les centres (moyennes) des clusters \(C_i\) et \(C_j\),
 - \(||\mu_i - \mu_j||^2\) est le carré de la distance euclidienne entre les centres des deux clusters.
 
-
-Pour déterminer le nombre optimal de clusters, nous avons appliqué la méthode du coude en analysant la somme des carrés intra-cluster. La somme des carrés intra-cluster (WSS) pour un cluster $k$ est donnée par (McQueen, 1967):
+Pour déterminer le nombre optimal de clusters, nous avons appliqué la méthode du coude en analysant la somme des carrés intra-cluster. La somme des carrés intra-cluster (WSS) pour un cluster $k$ est donnée par^[McQueen, 1967]:
 
 $$
 WSS = \sum_{i=1}^{k} \sum_{x \in C_i} ||x - \mu_i||^2
@@ -411,55 +423,46 @@ $$
 où $C_i$ est le $i$-ème cluster, $x$ est un point dans le cluster, et $\mu_i$ est le centre du cluster $C_i$.
 
 Ce processus a permis d'assigner chaque communauté à un cluster spécifique, révélant ainsi des groupements naturels et facilitant l'étude des relations écologiques.
-
-<br>
-
 Dans un deuxième temps, nous avons associé chaque communauté végétale à un habitat spécifique en utilisant la classification Corine Land Cover (CLC). Nous avons superposé les coordonnées géographiques des communautés avec la carte CLC pour **identifier l'habitat correspondant à chaque localisation**. Par la suite, nous avons calculé le pourcentage d'occurrence de chaque type d'habitat au sein des communautés, permettant ainsi de **déterminer la prévalence des différents habitats**. Cette méthode offre une vue détaillée de l'interaction spatiale entre les communautés végétales et leur environnement, enrichissant notre compréhension des écosystèmes étudiés.
-
-<br>
-
 Finalement, nous avons analysé la **composition et l'abondance des espèces au sein de chaque communauté végétale**, en intégrant des données géographiques pour associer chaque communauté à un identifiant unique. Le pourcentage de chaque espèce au sein de sa communauté a été déterminé, permettant d'identifier les **espèces dominantes**.
 
 <br>
 
-## Calculer la distribution de l'abondance des espèces
+## 3.2. Calculer la distribution de l'abondance des espèces
 
 <br>
 
-**La plupart des communautés contiennent quelques espèces communes et de nombreuses espèces rares**. Le nombre d'espèces ($F_n$) ayant chacune $n$ individus peut être exprimé comme suit : $F_n = a \frac{x^n}{n} \space pour \space n>0$ (Fischer et al., 1943).
+**La plupart des communautés contiennent quelques espèces communes et de nombreuses espèces rares**. Le nombre d'espèces ($F_n$) ayant chacune $n$ individus peut être exprimé comme suit : $F_n = a \frac{x^n}{n} \space pour \space n>0$^[Fischer et al., 1943].
 
 <br>
 
 ```{r, fig.align='center'}
-ggplot(community_summary, aes(x = Average_Abundance, y = Number_of_Species)) +
+distrib <- ggplot(community_summary, aes(x = Average_Abundance, y = Number_of_Species)) +
   geom_point(aes(color = Average_Species_Richness), alpha = 0.6, size = 3) +
   geom_smooth(method = "loess", formula = y ~ x, se = T, color = "red", linewidth = 1) +
   scale_color_viridis_c(name = "Richesse spécifique moyenne", option = "H") + 
   labs(x = "Abondance moyenne par espèce", y = "Nombre d'espèces",
-       title = "Distribution de l'abondance des espèces") +
-  theme_light() +
-  theme(axis.text.y = element_text(size = 10, angle = 0, hjust = 1),
-        plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
-        axis.title.y = element_text(face = "italic"),
-        axis.title.x = element_text(face = "italic")) + 
+       title = "") +
+  theme_minimal() +
+ theme(plot.title = element_text(size = 15L, face = "bold", hjust = 0.5), axis.title.y =  element_text(size = 10L), axis.title.x = element_text(size = 10L)) + 
   theme(legend.position = "bottom")
+#ggsave("distrib.jpg", plot = distrib, width = 10, height = 8, dpi = 300)
 
-ggplot(community_summary, aes(x = Average_Abundance, y = Number_of_Species)) +
+distrib_log <- ggplot(community_summary, aes(x = Average_Abundance, y = Number_of_Species)) +
   geom_point(aes(color = Average_Species_Richness), alpha = 0.6, size = 3) +
   geom_smooth(method = "loess", formula = y ~ x, se = T, color = "red", linewidth = 1) +
   scale_x_log10(name = "Abondance moyenne par espèce (log)", limits = c(1, NA)) +  # Transformation log pour l'axe X
   scale_y_log10(name = "Nombre d'espèces (log)", limits = c(1, NA)) +
   scale_color_viridis_c(name = "Richesse spécifique moyenne", option = "H") + 
   labs(x = "Abondance moyenne par espèce", y = "Nombre d'espèces",
-       title = "Distribution de l'abondance des espèces") +
-  theme_light() +
-  theme(axis.text.y = element_text(size = 10, angle = 0, hjust = 1),
-        plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
-        axis.title.y = element_text(face = "italic"),
-        axis.title.x = element_text(face = "italic")) + 
+       title = "") +
+  theme_minimal() +
+ theme(plot.title = element_text(size = 15L, face = "bold", hjust = 0.5), axis.title.y =  element_text(size = 10L), axis.title.x = element_text(size = 10L)) + 
   theme(legend.position = "bottom")
+#ggsave("distrib_log.jpg", plot = distrib_log, width = 10, height = 8, dpi = 300)
 
-
+print(distrib)
+print(distrib_log)
 ```
 <br>
 
@@ -468,11 +471,11 @@ Notre analyse visuelle, renforcée par une transformation logarithmique, suggèr
 
 <br>
 
-## Calcul de la diversité alpha
+## 3.3. Calcul de la diversité alpha
 
 <br>
 
-La diversité $\alpha$ c'est le nombre d'espèces trouvées à l'échelle locale (c'est-à-dire au sein d'un habitat ou d'un site local). La diversité $\alpha$ est l'échelle à laquelle prédominent les processus traditionnellement étudiés en écologie des communautés, tels que la limitation de la dispersion, le microclimat et les interactions entre les espèces (McGill et al., 2019).
+La diversité $\alpha$ c'est le nombre d'espèces trouvées à l'échelle locale (c'est-à-dire au sein d'un habitat ou d'un site local). La diversité $\alpha$ est l'échelle à laquelle prédominent les processus traditionnellement étudiés en écologie des communautés, tels que la limitation de la dispersion, le microclimat et les interactions entre les espèces^[McGill et al., 2019].
 
 <br>
 
@@ -480,7 +483,6 @@ La diversité $\alpha$ c'est le nombre d'espèces trouvées à l'échelle locale
 filtered_data <- community_environment %>%
   dplyr::select(PlotObservationID, Species, Original_abundance) %>%
   group_by(PlotObservationID)
-
 
 community_matrix <- xtabs(Original_abundance ~ PlotObservationID + Species, data = filtered_data)
 shannon_diversity <- diversity(community_matrix, index = "shannon")
@@ -493,6 +495,7 @@ alpha_diversity <- shannon_df %>%
   left_join(dplyr::select(community_index_percentage_species, PlotObservationID, Community_ID), 
             by = "PlotObservationID")
 alpha_diversity_unique <- alpha_diversity %>% distinct()
+community_environment <- merge(community_environment, alpha_diversity_unique, by = "PlotObservationID")
 
 shannon_per_community <- alpha_diversity %>%
   group_by(Community_ID) %>%
@@ -501,8 +504,9 @@ shannon_per_community <- alpha_diversity %>%
 
 diversity_info <- merge(shannon_per_community, community_mean, by = "Community_ID")
 diversity_info$Community_ID <- factor(diversity_info$Community_ID)
+alpha_diversity_unique$Community_ID <- factor(alpha_diversity_unique$Community_ID)
 
-ggplot(diversity_info) +
+plot_diversity_alpha <- ggplot(diversity_info) +
  aes(x = Community_ID, y = Mean_a_diversity, fill = Mean_Species_richness) +
  geom_col() +
  scale_fill_distiller(palette = "RdYlGn", direction = 1) +
@@ -511,13 +515,34 @@ ggplot(diversity_info) +
  theme_minimal() +
  theme(plot.title = element_text(size = 15L, 
  face = "bold", hjust = 0.5), axis.title.y = element_text(size = 10L), axis.title.x = element_text(size = 10L))
+#ggsave("plot_diversity_alpha.jpg", plot = plot_diversity_alpha, width = 10, height = 8, dpi = 300)
+
+plot_diversity_alpha_log <- ggplot(alpha_diversity_unique) +
+  aes(
+    x = Community_ID,
+    y = a_diversity,
+    fill = Community_ID
+  ) +
+  geom_boxplot() +
+  scale_fill_manual(values = couleurs) + 
+  scale_y_continuous(trans = "log10") +
+  labs(
+    x = "Identifiant de communauté",
+    y = "Indice de Shannon (log10)",
+    fill = "ID de communauté"
+  ) +
+  theme_minimal()
+#ggsave("plot_diversity_alpha_log.jpg", plot = plot_diversity_alpha_log, width = 10, height = 8, dpi = 300)
+
+print(plot_diversity_alpha)
+print(plot_diversity_alpha_log)
 
 ```
 <br>
 
-Nous avons analysé la diversité spécifique au sein de différentes communautés écologiques en utilisant l'indice de diversité de Shannon. La collecte des données a été effectuée à travers différents plots d'observation, chacun étant identifié par un PlotObservationID unique. Pour chaque plot, les espèces observées (Species) ainsi que leur abondance originale (Original_abundance) ont été enregistrées.
+Nous avons analysé la **diversité spécifique** au sein de différentes communautés écologiques en utilisant **l'indice de diversité de Shannon**. La collecte des données a été effectuée à travers différents plots d'observation, chacun étant identifié par un identifiant unique. Pour chaque plot, les espèces observées ainsi que leur abondance originale ont été enregistrées.
 
-La matrice des communautés a été construite à partir des données filtrées, en associant l'abondance originale de chaque espèce à son plot d'observation respectif. Sur cette base, l'indice de diversité de Shannon a été calculé pour chaque plot, fournissant une mesure quantitative de la diversité alpha - un indicateur de la richesse et de l'équité des espèces au sein des plots.
+La matrice des communautés a été construite à partir des données filtrées, en associant l'abondance originale de chaque espèce à son plot d'observation respectif. Sur cette base, l'indice de diversité de Shannon a été calculé pour chaque plot, fournissant une mesure quantitative de la diversité alpha - **un indicateur de la richesse et de l'équité des espèces au sein des plots**.
 
 L'indice de Shannon est défini mathématiquement comme suit :
 
@@ -525,12 +550,146 @@ $$
 H' = -\sum_{i=1}^{R} p_i \ln(p_i)
 $$
 
-où $H'$ est l'indice de diversité de Shannon, $R$ est le nombre total d'espèces dans la communauté, et $p_i$ est la proportion de l'espèce $i$ par rapport au total des individus. Cette formule prend en compte non seulement la richesse spécifique, mais aussi l'équitabilité dans la distribution des abondances des espèces (Magurran, 1988).
+où $H'$ est l'indice de diversité de Shannon, $R$ est le nombre total d'espèces dans la communauté, et $p_i$ est la proportion de l'espèce $i$ par rapport au total des individus. Cette formule prend en compte non seulement la richesse spécifique, mais aussi l'équitabilité dans la distribution des abondances des espèces^[Magurran, 1988].
 
-Nous avons également examiné la diversité alpha en relation avec les types de communauté (de 1 à 10), permettant une comparaison entre les communautés. Nous avons également regardé les richesses spécifiques moyennes afin de mettre en lumière des communauté qui abrite peu d'espèces (communauté 1) comparé à la valeur de la diversité alpha, reflétant une meilleure équitabilité dans la distribution des espèces.
+Nous avons également examiné la diversité alpha en relation avec les types de communauté (de 1 à 10), permettant une comparaison entre les communautés. Nous avons également regardé les richesses spécifiques moyennes afin de mettre en lumière des communauté qui abrite peu d'espèces (communauté 1) mais des indices de Shannon élevés, reflétant une meilleure équitabilité dans la distribution des espèces.
+
+Finalement, l'utilisation de la transformation log10 pour représenter la diversité alpha via l'indice de Shannon est une méthode courante en écologie pour normaliser la distribution des données et faciliter leur interprétation. Cette transformation mathématique permet de linéariser des relations qui ne le sont pas naturellement, rendant les analyses statistiques plus robustes et les comparaisons entre échantillons ou communautés plus intuitives. En convertissant les valeurs de l'indice de Shannon en échelle logarithmique, on peut mieux appréhender les différences relatives de diversité, les grandes valeurs étant compressées et les petites valeurs étendues. Cela aide également à minimiser l'impact des valeurs extrêmes, fournissant une vue d'ensemble plus équilibrée de la diversité des espèces au sein des écosystèmes étudiés. Il est crucial, cependant, de rappeler que cette transformation modifie l'échelle des données et que l'interprétation des résultats doit être ajustée en conséquence.
 
 <br>
 
+## 3.4. Calcul de la diversité béta
+
+<br>
+
+```{r, fig.align='center'}
+#Indice de Bray-Curtis puisque données abondance et pas présence absence
+bray_curtis <- vegdist(community_matrix, method = "bray")
+#nmds <- metaMDS(bray_curtis) #ordination non-métrique multidimensionnelle 
+#save(nmds, file = "nmds_results.RData")
+load("nmds_results.RData")
+plot(nmds)
+species_scores <- wascores(nmds$points, bray_curtis, expand = TRUE)
+df_nmds <- as.data.frame(nmds$points) # Convertir les points NMDS en dataframe
+ggplot(df_nmds, aes(MDS1, MDS2)) + 
+  geom_point() +
+  theme_minimal() +
+  labs(x = "NMDS1", y = "NMDS2", title = "Ordination NMDS")
+#stressplot(nmds)
+community_environment <- merge(community_environment, community_name, by = c("Longitude", "Latitude"))
+group <- community_environment %>%
+  dplyr::select(PlotObservationID, Community_ID.x) %>%
+  group_by(PlotObservationID)
+unique_group <- group %>%
+  dplyr::select(PlotObservationID, Community_ID.x) %>%
+  distinct()
+group_vector <- unique_group$Community_ID
+#anosim_result <- anosim(bray_curtis, group_vector)
+#save(anosim_result, file = "anosim_result.RData")
+load("anosim_result.RData")
+summary(anosim_result)
+beta_diversity <- rowMeans(as.matrix(bray_curtis))
+beta_df <- data.frame(PlotObservationID = rownames(bray_curtis), BetaDiversity = beta_diversity)
+beta_df$PlotObservationID <- rownames(beta_df)
+rownames(beta_df) <- NULL
+community_environment <- merge(community_environment, beta_df, by = "PlotObservationID")
+
+#Clustering ascendant : identification de cluster de similarité
+hc_bc <- hclust(bray_curtis, method = "complete") 
+plot(hc_bc, main = "Dendrogramme de la CAH")
+wss_bc <- sapply(1:100, function(k) {
+  kmeans(data_cluster, centers = k, nstart = 5, iter.max = 50)$tot.withinss
+})
+df_nbclust_bc <- data.frame(x = 1:100, y = wss_bc)
+ggplot(df_nbclust_bc, aes(x = x, y = y)) +
+  geom_line() +                   # Tracer une ligne
+  geom_vline(xintercept = 10, linetype = 2) + #k = 10 
+  labs(x = "Nombre de clusters", y = "Somme des carrés intra-cluster ") +
+  theme_minimal()  
+k_bc <- 10 # Nombre de clusters à former, à ajuster selon l'analyse
+clusters_bc <- cutree(hc_bc, k_bc)
+plot(clusters_bc)
+clusters_bc <- as.data.frame(clusters_bc)
+clusters_bc <- data.frame(PlotObservationID = rownames(clusters_bc), clusters_bc)
+rownames(clusters_bc) <- NULL
+community_environment <- merge(community_environment, clusters_bc, by = "PlotObservationID")
+beta_df <- merge(beta_df, clusters_bc, by = "PlotObservationID")
+beta_df$PlotObservationID <- as.integer(beta_df$PlotObservationID)
+#Ajout des données
+beta_diversity <- beta_df %>%
+  left_join(dplyr::select(community_index_percentage_species, PlotObservationID, Community_ID), 
+            by = "PlotObservationID")
+
+beta_diversity_unique <- beta_diversity %>% distinct()
+
+bray_curtis_per_community <- beta_diversity %>%
+  group_by(Community_ID) %>%
+  summarise(Mean_b_diversity = mean(BetaDiversity, na.rm = TRUE))
+beta_diversity_unique$Community_ID <- factor(beta_diversity_unique$Community_ID)
+beta_diversity_unique$clusters_bc <- factor(beta_diversity_unique$clusters_bc)
+
+plot_b_diversity_log <- ggplot(beta_diversity_unique) +
+  aes(
+    x = Community_ID,
+    y = BetaDiversity,
+    fill = Community_ID
+  ) +
+  geom_boxplot() +
+  scale_fill_manual(values = couleurs) +
+  scale_y_continuous(trans = "log10") +
+  labs(
+    x = "Identifiant de communauté",
+    y = "Indice de Bray-Curtis (log10)",
+    fill = "ID de Communauté"
+  ) +
+  theme_minimal()
+#ggsave("plot_b_diversity_log.jpg", plot = plot_b_diversity_log, width = 10, height = 8, dpi = 300)
 
 
-[^1]: Dans le contexte de sPlot, un ensemble de données mondiales sur les parcelles de végétation, SoilClim_PC1 et PC2 représentent les deux premières composantes principales dérivées d'une analyse en composantes principales (ACP) de 30 variables climatiques et pédologiques. Cette ACP couvre l'ensemble de l'espace environnemental de tous les habitats terrestres de la planète. Les deux premières composantes principales, PC1 et PC2, représentent une part importante de la variation environnementale totale, la PC1 expliquant 47 % et la PC2 23 % de la variance. Ces composantes sont utilisées pour organiser l'espace environnemental en une grille de 100 × 100, ce qui facilite l'échantillonnage équilibré des parcelles de végétation dans différentes conditions environnementales. La méthodologie vise à garantir que l'ensemble de données rééchantillonnées représente l'intégralité du gradient environnemental couvert par la base de données sPlot originale en maximisant la variabilité par rapport à la représentativité lors de la sélection des parcelles de végétation pour l'analyse.
+temp_merge <- merge(shannon_per_community, community_mean, by = "Community_ID")
+diversity_info <- merge(temp_merge, bray_curtis_per_community, by = "Community_ID")
+diversity_info$Community_ID <- factor(diversity_info$Community_ID)
+plot_diversity_beta <- ggplot(diversity_info) +
+ aes(x = Community_ID, y = Mean_a_diversity, fill = Mean_b_diversity) +
+ geom_col() +
+ scale_fill_distiller(palette = "RdYlGn", direction = 1) +
+ labs(x = "Identifiant de communauté", 
+ y = "Diversité alpha (indice de Shannon)", fill = "Diversité béta (Bray-Curtis)") +
+ theme_minimal() +
+ theme(plot.title = element_text(size = 15L, 
+ face = "bold", hjust = 0.5), axis.title.y = element_text(size = 10L), axis.title.x = element_text(size = 10L))
+#ggsave("plot_diversity_beta.jpg", plot = plot_diversity_beta, width = 10, height = 8, dpi = 300)
+
+print(plot_diversity_beta)
+print(plot_b_diversity_log)
+
+community_environment <- community_environment %>%
+  dplyr::select(-Community_Name.x, -a_diversity.x, -Grassland.y, -Forest.y, -Shrubland.y, -Wetland.y, -SoilClim_PC1.y, -SoilClim_PC2.y, -Community_ID.y)
+  
+community_environment <- community_environment %>%
+  rename(Community_name = Community_Name.y,
+       a_diversity = a_diversity.y,
+       Grassland = Grassland.x,
+       Forest = Forest.x,
+       Shrubland = Shrubland.x,
+       Wetland = Wetland.x,
+       SoilClim_PC1 = SoilClim_PC1.x,
+       SoilClim_PC2 = SoilClim_PC2.x, 
+       Community_ID = Community_ID.x)
+write.csv(community_environment, "community_environment.csv")
+```
+<br>
+
+Dans cette étude, nous avons employé l'indice de **Bray-Curtis** pour analyser les données d'abondance des espèces au sein de notre communauté végétale. Cet indice a été choisi car il est particulièrement adapté pour des données exprimant l'abondance plutôt que la simple présence ou absence des espèces.Cet indice est défini par la formule suivante^[Legendre, P. & Legendre, L. (2012)] :
+
+$$ BC = \frac{\sum |x_i - y_i|}{\sum (x_i + y_i)} $$
+
+où $x_i$ et $y_i$ représentent les abondances de l'espèce $i$ dans les deux communautés à comparer. L'indice varie de 0 à 1, où 0 indique une similarité totale (aucune dissimilarité) et 1 indique une dissimilarité totale (aucune espèce en commun).
+
+Une ordination non-métrique multidimensionnelle (NMDS) a été réalisée sur la matrice de dissimilarité générée par l'indice de Bray-Curtis pour explorer les patrons de distribution des communautés végétales dans l'espace multidimensionnel. La NMDS permet de visualiser des patterns complexes de similarités ou de dissimilarités entre des échantillons (comme des sites d'étude en écologie) en les réduisant à un espace à deux ou trois dimensions facile à interpréter. Chaque point dans cet espace représente un échantillon, et la distance entre les points reflète leur dissimilarité : les points proches les uns des autres sont similaires en termes de composition des espèces, tandis que ceux qui sont éloignés diffèrent significativement. L'objectif de la NMDS est de **minimiser une valeur appelée "stress"**, qui quantifie la **différence entre les distances écologiques réelles** (calculées à partir des données) et les **distances représentées dans l'espace d'ordination**. Un faible niveau de stress indique que la configuration spatiale des points reflète fidèlement les dissimilarités réelles entre les échantillons. Les résultats de l'ordination NMDS ont été visualisés à travers des graphiques de dispersion pour identifier visuellement les groupements de sites partageant des communautés végétales similaires. De plus, des scores d'espèces ont été calculés pour évaluer la contribution des différentes espèces aux axes de l'ordination et leur relation avec les patrons de distribution observés.
+
+Pour examiner plus en détail la structure des communautés, une analyse de clustering ascendant a été menée sur la base de la distance de Bray-Curtis. Cette approche nous a permis d'identifier des clusters de sites présentant des similitudes significatives dans leur composition en espèces. Le nombre optimal de clusters a été déterminé par l'analyse de la somme des carrés intra-cluster pour différentes valeurs de k, le nombre de clusters, afin de trouver un compromis entre la précision du modèle et sa complexité.
+
+Enfin, des analyses supplémentaires ont été effectuées pour étudier la diversité bêta au sein des clusters identifiés et entre les différents groupes de communautés. La diversité bêta, mesurée à travers l'indice de Bray-Curtis, a été mise en relation avec des variables environnementales et des indices de diversité alpha, tels que l'indice de Shannon, pour explorer les relations entre la diversité spécifique, la composition des communautés et les conditions environnementales des sites.
+
+
