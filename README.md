@@ -45,6 +45,59 @@ The Botanical Information and Ecology Network (BIEN) is a comprehensive platform
 The TRY Plant Trait Database is a global repository that collates plant trait data with the objective of improving our understanding of plant functional diversity. Managed by a consortium of international researchers, TRY focuses on making trait data accessible to the scientific community to foster research on climate change impacts, ecosystem services, and biodiversity conservation.
 #### How TRY Works
 - Collaborative Data Collection: TRY compiles plant trait data from published studies, databases, and direct contributions from researchers worldwide.
+
+
+# Community Data Analysis with sPlot
+
+This repository is dedicated to the analysis of woody plant community data in the Mediterranean region. The primary aim is to merge community data from the sPlot database with trait data from BIEN and TRY databases, focusing on enriching our dataset with missing trait information. This README outlines the methodology used to prepare and analyze the data, the evaluation of Mediterranean woody plant community characterization rates, and the calculation of diversity indices.
+
+## Data Preparation and Manipulation
+
+The data analysis process began by setting the working directory to where our datasets are located. Essential R packages such as `dplyr`, `tidyr`, `ggplot2`, `sf`, and others were loaded to facilitate data manipulation, visualization, and analysis.
+
+The primary datasets include:
+
+- `sPlot_traits.csv` for species traits.
+- `sPlot_species_abundance.csv` for species abundance.
+- `sPlot_header.csv` and `sPlot_metadata.csv` for additional metadata.
+- Additional datasets for specific analyses, like `sPlot_woodiness.csv` for woody species.
+
+Data from the sPlot community database was merged with trait data, with missing trait information supplemented from the TRY database. Standardization of information across databases was crucial to ensure data uniformity and quality for subsequent analyses.
+
+## Evaluation of Mediterranean Woody Plant Community Characterization Rates
+
+Unique species were identified from the dataset, and a species-site matrix was created. This allowed for the calculation of species characterization rates within communities, highlighting the predominant species that define the Mediterranean landscape. The analysis focused on differentiating generalist species from those adapted to specific ecological niches.
+
+## Diversity Indices
+
+### Defining and Naming Communities
+
+Communities were defined based on species frequency data, with each community assigned a unique name. Communities were then summarized by the number of species, average abundance, and other metrics. The association of communities with specific habitats and abiotic conditions was examined by integrating data on habitat types and environmental factors.
+
+### Calculating Species Abundance Distribution
+
+The distribution of species abundance within communities was analyzed, revealing a pattern of few common species and many rare species. This pattern aligns with Fisher's logarithmic series, emphasizing the prevalence of numerous rare species compared to a few common ones.
+
+### Alpha Diversity
+
+Alpha diversity, representing the number of species found at a local scale within a habitat or site, was calculated using the Shannon diversity index. This index reflects both species richness and evenness in species distribution across communities.
+
+### Beta Diversity
+
+Beta diversity was analyzed using the Bray-Curtis index, suitable for abundance data rather than presence/absence data. NMDS ordination based on Bray-Curtis distances was performed to explore community distribution patterns in multidimensional space. Hierarchical clustering further investigated community similarities based on species composition, and beta diversity analyses were conducted to study the diversity between different community groups in relation to environmental variables and alpha diversity indices.
+
+## Repository Structure
+
+- Data preparation scripts and analyses are documented, focusing on merging, cleaning, and analyzing plant community and trait data.
+- The diversity of Mediterranean woody plant communities is evaluated, highlighting predominant species and their ecological niches.
+- Alpha and beta diversity indices are calculated to examine within-community species richness and between-community species composition variation.
+
+## Contributions
+
+This work contributes to understanding the biodiversity and structure of plant communities in the Mediterranean region. Insights into species dominance, ecological niches, and community composition in relation to environmental factors are provided, enhancing our knowledge of Mediterranean ecosystems.
+
+Pierre Bouchet, 2024-03-28
+
 - Trait Harmonization: The database standardizes trait definitions and units, offering a consistent framework for trait data. This includes a comprehensive trait ontology covering various plant functional traits.
 - Data Availability: Researchers can request access to TRY data for specific projects, subject to data use agreements that respect data contributors' conditions.
 #### Information in TRY
