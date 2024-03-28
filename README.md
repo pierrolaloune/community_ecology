@@ -45,6 +45,12 @@ The Botanical Information and Ecology Network (BIEN) is a comprehensive platform
 The TRY Plant Trait Database is a global repository that collates plant trait data with the objective of improving our understanding of plant functional diversity. Managed by a consortium of international researchers, TRY focuses on making trait data accessible to the scientific community to foster research on climate change impacts, ecosystem services, and biodiversity conservation.
 #### How TRY Works
 - Collaborative Data Collection: TRY compiles plant trait data from published studies, databases, and direct contributions from researchers worldwide.
+- Trait Harmonization: The database standardizes trait definitions and units, offering a consistent framework for trait data. This includes a comprehensive trait ontology covering various plant functional traits.
+- Data Availability: Researchers can request access to TRY data for specific projects, subject to data use agreements that respect data contributors' conditions.
+#### Information in TRY
+- Plant Functional Traits: An extensive collection of quantitative traits, including physiological, morphological, and phenological traits, for thousands of plant species.
+- Metadata: Contextual information accompanying trait measurements, such as experimental conditions, growth forms, and geographic locations.
+- Data Sources: References and origins of the trait data, ensuring transparency and traceability.
 
 
 # Community Data Analysis with sPlot
@@ -98,9 +104,3 @@ This work contributes to understanding the biodiversity and structure of plant c
 
 Pierre Bouchet, 2024-03-28
 
-- Trait Harmonization: The database standardizes trait definitions and units, offering a consistent framework for trait data. This includes a comprehensive trait ontology covering various plant functional traits.
-- Data Availability: Researchers can request access to TRY data for specific projects, subject to data use agreements that respect data contributors' conditions.
-#### Information in TRY
-- Plant Functional Traits: An extensive collection of quantitative traits, including physiological, morphological, and phenological traits, for thousands of plant species.
-- Metadata: Contextual information accompanying trait measurements, such as experimental conditions, growth forms, and geographic locations.
-- Data Sources: References and origins of the trait data, ensuring transparency and traceability.
