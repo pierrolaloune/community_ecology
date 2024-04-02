@@ -1,185 +1,156 @@
+#Répertoire de travail
+setwd("C:/R/STAGE/")
 #Packages
 library(dplyr)
 library(tidyr)
 library(ggplot2)
-library(esquisse) #a package to simplify the use of ggplot
+library(esquisse)
 library(sf)
 library(ggspatial)
 library(factoextra)
 library(cluster)
 library(NbClust)
 library(dbscan)
+library(raster)
+library(sp)
+library(vegan)
+library(conflicted)
 
-#load your file from the database make sure you've got this files
+#Chargement des fichiers
 sPlot_traits <- read.csv("sPlot_traits.csv", header = TRUE, sep = ",", stringsAsFactors = FALSE)
 sPlot_species_abundance <- read.csv("sPlot_species_abundance.csv", header = TRUE, sep = ",", stringsAsFactors = FALSE)
 sPlot_header <- read.csv("sPlot_header.csv", header = TRUE, sep = ",", stringsAsFactors = FALSE)
 sPlot_metadata <- read.csv("sPlot_metadata.csv", header = TRUE, sep = ",", stringsAsFactors = FALSE) 
-traits_data <- read.csv("traits_data.csv") #traits data from BIEN database
-data_fr_sp <- read.csv("data_fr_sp.csv") #Your file with your data traits (for us its data traits from woody plants in France and Spain)
+traits_data <- read.csv("traits_data.csv") #fichier de traits
+sPlot_woodiness <- read.csv("sPlot_woodiness.csv")
+sPlot_woodiness_clean <- read.csv("sPlot_woodiness_clean.csv")
+data_fr_sp <- read.csv("data_fr_sp.csv")
+species_med <- read.csv("species_frequency_woodiness_TCD.csv")
+sPlot_percent <- read.csv("sPlot_percent_woodiness.csv")
 
-#Data manipulation
-sPlot_SA_GPS <- merge(sPlot_species_abundance, sPlot_header[, c("PlotObservationID", "Latitude", "Longitude")], by = "PlotObservationID") #just 
-sPlot_SA_GPS$X = NULL
-colnames(sPlot_traits)
-colonnes_sPlot_traits <- c("PlotObservationID", "TraitCoverage_cover", "Species_richness", "TraitCoverage_pa",
-                           "LeafArea_CWM", "StemDens_CWM", "SLA_CWM", "LeafC_perdrymass_CWM", "LeafN_CWM", 
-                           "LeafP_CWM", "PlantHeight_CWM", "SeedMass_CWM", "Seed_length_CWM", "LDMC_CWM", 
-                           "LeafNperArea_CWM", "LeafNPratio_CWM", "Leaf_delta_15N_CWM", "Seed_num_rep_unit_CWM",
-                           "Leaffreshmass_CWM", "Stem_cond_dens_CWM", "Disp_unit_leng_CWM", "Wood_vessel_length_CWM",
-                           "LeafArea_CWV", "StemDens_CWV", "SLA_CWV", "LeafC_perdrymass_CWV", "LeafN_CWV",
-                           "LeafP_CWV", "PlantHeight_CWV", "SeedMass_CWV", "Seed_length_CWV", "LDMC_CWV", 
-                           "LeafNperArea_CWV", "LeafNPratio_CWV", "Leaf_delta_15N_CWV", "Seed_num_rep_unit_CWV",
-                           "Leaffreshmass_CWV", "Stem_cond_dens_CWV", "Disp_unit_leng_CWV", "Wood_vessel_length_CWV", "Latitude", "Longitude")
-sPlot_SA_GPS_traits <- merge(sPlot_SA_GPS, sPlot_traits, by = "PlotObservationID")
-sPlot_SA_Med <- sPlot_SA_GPS_traits %>% #med region
-  filter(Latitude >= 30 & Latitude <= 44 &
-           Longitude >= -12 & Longitude <= 40)
+#sPlot_SA_GPS <- merge(sPlot_species_abundance, sPlot_header[, c("PlotObservationID", "Latitude", "Longitude")], by = "PlotObservationID") #Dataframe avec ajout de latitude et longitude
+#sPlot_SA_GPS$X = NULL
+#colnames(sPlot_traits)
+#colonnes_sPlot_traits <- c("PlotObservationID", "TraitCoverage_cover", "Species_richness", "TraitCoverage_pa",
+#                           "LeafArea_CWM", "StemDens_CWM", "SLA_CWM", "LeafC_perdrymass_CWM", "LeafN_CWM", 
+#                           "LeafP_CWM", "PlantHeight_CWM", "SeedMass_CWM", "Seed_length_CWM", "LDMC_CWM", 
+#                           "LeafNperArea_CWM", "LeafNPratio_CWM", "Leaf_delta_15N_CWM", "Seed_num_rep_unit_CWM",
+#                           "Leaffreshmass_CWM", "Stem_cond_dens_CWM", "Disp_unit_leng_CWM", "Wood_vessel_length_CWM",
+#                           "LeafArea_CWV", "StemDens_CWV", "SLA_CWV", "LeafC_perdrymass_CWV", "LeafN_CWV",
+#                           "LeafP_CWV", "PlantHeight_CWV", "SeedMass_CWV", "Seed_length_CWV", "LDMC_CWV", 
+#                           "LeafNperArea_CWV", "LeafNPratio_CWV", "Leaf_delta_15N_CWV", "Seed_num_rep_unit_CWV",
+#                           "Leaffreshmass_CWV", "Stem_cond_dens_CWV", "Disp_unit_leng_CWV", "Wood_vessel_length_CWV", "Latitude", "Longitude")
+#sPlot_SA_GPS_traits <- merge(sPlot_SA_GPS, sPlot_traits, by = "PlotObservationID")
+#sPlot_SA_Med <- sPlot_SA_GPS_traits %>% #on centre sur la région méditerranéenne
+#  filter(Latitude >= 30 & Latitude <= 44 &
+#           Longitude >= -12 & Longitude <= 40)
 
-sPlot_traits_woodiness <- traits_data %>% #création d'un tableau avec les valeurs de traits et les epèces ligneuses
-  select("scrubbed_species_binomial", "trait_name", "trait_value")%>%
-  filter(trait_name == "whole plant woodiness") #on choisit la valeur de trait "whole plant woodiness" pour discriminer les espèces ligneuses des herbacées
-sPlot_traits_woodiness <- sPlot_traits_woodiness %>%
-  rename(Species = scrubbed_species_binomial)
-sPlot_SA_Med_woodiness <- merge(sPlot_SA_Med, sPlot_traits_woodiness, by = "Species")
-sPlot_woodiness <- sPlot_SA_Med_woodiness %>%
-  filter(trait_value %in% c("woody")) #we filter in order to keep the "woody" plant
-sPlot_woodiness_clean <- sPlot_woodiness %>% distinct(PlotObservationID, Species, Original_abundance, Latitude, Longitude, .keep_all = TRUE)
-sPlot_woodiness_clean$Original_species=NULL
-sPlot_woodiness_clean$Abundance_scale=NULL
-sPlot_woodiness_clean$X=NULL #final dataframe
-write.csv(sPlot_woodiness, "sPlot_woodiness.csv") #make sure you send this file in the right directory file
+#sPlot_traits_woodiness <- traits_data %>% #création d'un tableau avec les valeurs de traits et les epèces ligneuses
+#  select("scrubbed_species_binomial", "trait_name", "trait_value")%>%
+#  filter(trait_name == "whole plant woodiness") #on choisit la valeur de trait "whole plant woodiness" pour discriminer les espèces ligneuses des herbacées
+#sPlot_traits_woodiness <- sPlot_traits_woodiness %>%
+#  rename(Species = scrubbed_species_binomial)
+#sPlot_SA_Med_woodiness <- merge(sPlot_SA_Med, sPlot_traits_woodiness, by = "Species")
+#sPlot_woodiness <- sPlot_SA_Med_woodiness %>%
+#  filter(trait_value %in% c("woody")) #on filtre pour la valeur "woody" pour garder que les ligneuses
+#sPlot_woodiness_clean <- sPlot_woodiness %>% distinct(PlotObservationID, Species, Original_abundance, Latitude, Longitude, .keep_all = TRUE)
+#sPlot_woodiness_clean$Original_species=NULL
+#sPlot_woodiness_clean$Abundance_scale=NULL
+#sPlot_woodiness_clean$X=NULL #création du tableau final
+#write.csv(sPlot_woodiness, "sPlot_woodiness.csv")
 
-#Assessment of characterization rates of Mediterranean woody communities
-species_vector <- unique(data_fr_sp$Species) #names of described species
-sites_species_matrix_woodiness <- table(sPlot_woodiness_clean$PlotObservationID, sPlot_woodiness_clean$Species) #creation of a site-species matrix
-described_species_matrix_woodiness <- sites_species_matrix_woodiness[, colnames(sites_species_matrix_woodiness) %in% species_vector] #creation of a matrix for described site-species (subsample)
+species_vector <- unique(data_fr_sp$Species) #nom des espèces décrites
+sites_species_matrix_woodiness <- table(sPlot_woodiness_clean$PlotObservationID, sPlot_woodiness_clean$Species) #création d'une matrice site-espèce
+described_species_matrix_woodiness <- sites_species_matrix_woodiness[, colnames(sites_species_matrix_woodiness) %in% species_vector] #création d'une matrice site-espèce décrites sous-échantillon)
 total_species_sum_woodiness <- rowSums(sites_species_matrix_woodiness)
 described_species_sum_woodiness <- rowSums(described_species_matrix_woodiness)
-species_percentage_woodiness <- described_species_sum_woodiness / total_species_sum_woodiness * 100 #calculation of the percentage of described species in the communities
+species_percentage_woodiness <- described_species_sum_woodiness / total_species_sum_woodiness * 100 #calcul des pourcentage d'espèces décrites dans les communautés
 sPlot_woodiness_clean$Species_Percentage <- species_percentage_woodiness[match(sPlot_woodiness_clean$PlotObservationID, names(species_percentage_woodiness))]
 sPlot_woodiness_clean$Species_Percentage
-#species_med <- read.csv("species_frequency_woodiness_TCD.csv") #this file contains all the woody mediterranean plant interesting for our study
+
+#species_med <- read.csv("species_frequency_woodiness_TCD.csv")
 species_med <- species_med %>%
-  select(all_species, total_occurrence, X.1) %>%
+  dplyr::select(all_species, total_occurrence, X.1) %>%
   rename(Species=all_species,
-         commentary=X.1)
+         commentaire=X.1)
 species_med_clean <- species_med %>%
-  filter(is.na(commentary) | commentary == "")
-sPlot_percent_woodiness <- sPlot_woodiness_clean %>% #Creation of a dataframe containing percentages and GPS coordinates (QGIS)
-  select(Species, Latitude, Longitude, Species_Percentage) %>%
+  dplyr::filter(is.na(commentaire) | commentaire == "")
+#write.csv(species_med_clean, "species_med_clean.csv")
+
+sPlot_percent_woodiness <- sPlot_woodiness_clean %>% #Création d'un dataframe contenant les pourcentages et les coordonnées GPS (QGIS)
+  dplyr::select(Species, Latitude, Longitude, Species_Percentage) %>%
   mutate(
     Latitude = round(Latitude, 3),
     Longitude = round(Longitude, 3)
   ) %>%
   distinct() %>%
-  filter(Species %in% species_med_clean$Species) %>%
+  dplyr::filter(Species %in% species_med_clean$Species) %>%
   group_by(Latitude, Longitude) %>%
   summarise(
-    count = n_distinct(Species), #counts unique species per group
-    all_species = toString(unique(Species)), #concatenation
-    Avg_Species_Percentage = mean(Species_Percentage, na.rm = TRUE) #Average Percentage
+    count = n_distinct(Species), #compte les espèces uniques par groupe
+    all_species = toString(unique(Species)), #concaténation
+    Avg_Species_Percentage = mean(Species_Percentage, na.rm = TRUE) #Pourcentage moyen
   )
-#Map creation
+
+#Création de la carte
 sPlot_sf <- st_as_sf(sPlot_percent_woodiness, coords = c("Longitude", "Latitude"), crs = 4326)
 
 ggplot(sPlot_sf) +
-  annotation_map_tile(type = "osm", zoom = 0, alpha = 0.5) + # Adds a map background
+  annotation_map_tile(type = "osm", zoom = 0, alpha = 0.5) + # Ajoute un fond de carte
   aes(colour = Avg_Species_Percentage) +
   geom_sf(size = 1.2) +
   scale_color_gradient(low = "#ECDEC0", high = "#D31212") +
   labs(colour = "%",
-       title = "Evaluation of characterization rates of woody communities") + # Customizes the legend
+       title = "Évaluation des taux de caractérisation des communautés ligneuses") + # Personnalise la légende
   theme_minimal()
 
-#Described species density
-ggplot(sPlot_percent_woodiness) +
+#Densité espèces décrites
+densite <- ggplot(sPlot_percent_woodiness) +
   aes(x = Avg_Species_Percentage) +
   geom_density(adjust = 0.7, fill = "#0F440F") +
   labs(
-    x = "Percentage of described species within each community",
-    y = "Density",
-    title = "Density of the number of described species within each community (%)",
-    subtitle = "Mediterranean Basin"
+    x = "Pourcentage d'espèce décrite au sein de chaque communauté",
+    y = "Densité",
+    title = "",
+    subtitle = ""
   ) +
-  theme_light() +
-  theme(
-    plot.title = element_text(size = 16L,
-                              face = "bold",
-                              hjust = 0.5),
-    axis.title.x = element_text(face = "italic"),
-    axis.title.y = element_text(face = "italic")
-  )
-#species_percentage <- read.csv("sPlot_percent_woodiness.csv")
+ theme_minimal() +
+ theme(plot.title = element_text(size = 14L, face = "bold", hjust = 0.5), axis.title.y =  element_text(size = 10L), axis.title.x = element_text(size = 10L))
+#ggsave("densite.jpg", plot = densite, width = 10, height = 8, dpi = 300)
+print(densite)
+
+species_percentage <- read.csv("sPlot_percent_woodiness.csv")
 sPlot_separated <- species_percentage %>%
   separate_rows(all_species, sep = ",") %>%
   mutate(all_species = trimws(all_species)) 
 species_frequency <- sPlot_separated %>%
   count(all_species, name = "total_occurrence") %>%
   arrange(desc(total_occurrence))
+
 med_occurrence <- median(species_frequency$total_occurrence)
-species_frequency$group <- ifelse(species_frequency$total_occurrence > med_occurrence, "High Occurrence", "Low Occurrence")
-#You want to create your graph representing occurence by Species
-ggplot(species_frequency) +
+species_frequency$group <- ifelse(species_frequency$total_occurrence > med_occurrence, "Haute Occurrence", "Basse Occurrence")
+
+occurence <- ggplot(species_frequency) +
   aes(x = reorder(all_species, total_occurrence), y = total_occurrence, fill = total_occurrence) +
   geom_col() +
   coord_flip() +
   facet_wrap(~group, scales = "free_y") +
-  scale_fill_gradient(low = "#b2c2bf", high = "#0F440F") + # Sage green to forest green
-  labs(x = "Species", y = "Occurrence", title = "Occurrence by Species") +
-  theme_light() +
-  theme(axis.text.y = element_text(size = 10, angle = 0, hjust = 1),
-        plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
-        axis.title.y = element_text(face = "italic"),
-        axis.title.x = element_text(face = "italic"))
+  scale_fill_gradient(low = "#b2c2bf", high = "#0F440F") + # Vert sauge à vert forêt
+  labs(x = "Espèces", y = "Occurrence", title = "", fill = "Occurrence") +
+  theme_minimal() +
+ theme(plot.title = element_text(size = 15L, face = "bold", hjust = 0.5), axis.title.y =  element_text(size = 10L), axis.title.x = element_text(size = 10L))
+#ggsave("occurence.jpeg", plot = occurence, width = 10, height = 8, dpi = 300)
+print(occurence)
 
-# Load data from a CSV file
-species_percentage <- read.csv("sPlot_percent_woodiness.csv")
-
-# Separate the species listed in the 'all_species' column, trim whitespace
-sPlot_separated <- species_percentage %>%
-  tidyr::separate_rows(all_species, sep = ",") %>%
-  dplyr::mutate(all_species = trimws(all_species))
-
-# Count the frequency of each species and sort by frequency
-species_frequency <- sPlot_separated %>%
-  dplyr::count(all_species, name = "total_occurrence") %>%
-  dplyr::arrange(desc(total_occurrence))
-
-# Calculate the median occurrence for grouping
-med_occurrence <- median(species_frequency$total_occurrence)
-
-# Classify species into 'High Occurrence' or 'Low Occurrence' based on median
-species_frequency$group <- ifelse(species_frequency$total_occurrence > med_occurrence, 
-                                   "High Occurrence", "Low Occurrence")
-
-# Plotting
-ggplot(species_frequency) +
-  aes(x = reorder(all_species, total_occurrence), y = total_occurrence, fill = total_occurrence) +
-  geom_col() +
-  coord_flip() +  # Flip coordinates for horizontal bars
-  facet_wrap(~group, scales = "free_y") +  # Separate plots based on occurrence group
-  scale_fill_gradient(low = "#b2c2bf", high = "#0F440F") +  # Sage green to forest green color gradient
-  labs(x = "Species", y = "Occurrence", title = "Occurrence by Species") +  # Labels and title
-  theme_light() +  # Light theme for the plot
-  theme(axis.text.y = element_text(size = 10, angle = 0, hjust = 1),  # Custom theme settings
-        plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
-        axis.title.y = element_text(face = "italic"),
-        axis.title.x = element_text(face = "italic"))
-
-# Identify unique species from a dataset on species frequency
 species_community <- unique(species_frequency$all_species)
-# Filter data to include only species found in the species_community
 community <- sPlot_woodiness_clean[sPlot_woodiness_clean$Species %in% species_community, ]
-
-# Assign names to each community
+#attribuer des noms à chaque communautés
 community <- community %>%
-  dplyr::select(Species, PlotObservationID, Original_abundance, Relative_cover, TraitCoverage_cover, Species_richness, Species_Percentage, Latitude, Longitude) %>%
+  dplyr::select(Species, PlotObservationID, Original_abundance, Relative_cover, TraitCoverage_cover, Species_richness, Species_Percentage,Latitude, Longitude)%>%
   group_by(Latitude, Longitude, PlotObservationID) %>%
   mutate(Community_Name = paste0("community_", cur_group_id())) %>%
-  ungroup()
-
-# Summary of communities
+  ungroup() 
+#Résumé des communautés
 community_summary <- community %>%
   group_by(Community_Name) %>%
   summarise(
@@ -189,19 +160,18 @@ community_summary <- community %>%
     Average_Species_Richness = mean(Species_richness, na.rm = TRUE),
     Average_Species_Percentage = mean(Species_Percentage, na.rm = TRUE)
   )
-
-# Species by communities
+#Les espèces par communautés
 species_in_community <- community %>%
   dplyr::select(Community_Name, Species, Original_abundance, Relative_cover) %>%
   arrange(Community_Name, Species)
 
-# Redefine communities based on habitat + abiotic conditions
-selected_columns <- c("PlotObservationID", "Latitude", "Longitude", "Grassland", "Forest", "Shrubland", "Wetland", "SoilClim_PC1", "SoilClim_PC2") # Principal components PC1 + PC2 for soil and climate
+#Redefinit les communautés en fonction de l'habitat + conditions abiotiques
+selected_columns <- c("PlotObservationID", "Latitude", "Longitude", "Grassland", "Forest", "Shrubland", "Wetland", "SoilClim_PC1", "SoilClim_PC2") #PC1 + PC2 ->
 sPlot_header_selected <- sPlot_header[, selected_columns]
 community_environment <- merge(community, sPlot_header_selected, by = c("PlotObservationID", "Latitude", "Longitude"))
 community_environment <- na.omit(community_environment)
 
-# Community data with community names
+#données de communautés avec les noms de communautés
 community_name <- community_environment %>%
   group_by(Latitude, Longitude) %>%
   summarise(Species = list(Species),
@@ -218,94 +188,345 @@ community_name <- community_environment %>%
   ungroup() %>%
   mutate(Community_Name = sapply(Ranked_Species, function(x) paste(x, collapse=" "))) %>%
   dplyr::select(-Species, -Abundance, -Ranked_Species)
+#Visualisation des communautés proches (milieu + sol + climat)
+data_cluster <- community_name %>%
+  mutate(SoilClim_PC1_Rounded = round(SoilClim_PC1, 1),
+         SoilClim_PC2_Rounded = round(SoilClim_PC2, 1)) %>%
+  dplyr::select(Grassland, Forest, Shrubland, Wetland, SoilClim_PC1_Rounded, SoilClim_PC2_Rounded)
 
-# Creates a scatter plot showing the relationship between average abundance per species and the number of species
-ggplot(community_summary, aes(x = Average_Abundance, y = Number_of_Species)) +
-  # Adds points to the plot, coloring them based on average species richness, with partial transparency and a specified size
+dm <- dist(data_cluster, method = "euclidean") 
+#Calcul de la matrice de distance
+hc <- hclust(dm, method = "ward.D2") #clustering hiérarchique
+plot(hc, hang = -1, cex = 0.6, main = "Dendrogramme du Clustering Hiérarchique")
+#Calcul pour le nombre de cluster optimal
+#Somme des carrés intra clusters
+wss <- sapply(1:100, function(k) {
+  kmeans(data_cluster, centers = k, nstart = 20, iter.max = 50)$tot.withinss
+})
+
+df_nbclust <- data.frame(x = 1:100, y = wss)
+ggplot(df_nbclust, aes(x = x, y = y)) +
+  geom_line() +                   # Tracer une ligne
+  geom_vline(xintercept = 10, linetype = 2) + #k = 10 
+  labs(x = "Nombre de clusters", y = "Somme des carrés intra-cluster ") +
+  theme_minimal()  
+k <- 10
+cluster_assignments <- cutree(hc, k)
+community_name$Community_ID <- cluster_assignments
+write.csv(community_name, 'community_name.csv')
+couleurs <- c("#ca0020", "#cc6300", "#fdbf6f", "#ff6f0f", "#5cd052", 
+              "#a6cee3", "#1f78b4", "#33a02c", "#457428", "#2530c7") #10
+community_name_sf <- st_as_sf(community_name, coords = c("Longitude", "Latitude"), crs = 4326)
+ggplot() +
+  annotation_map_tile(type = "osm", zoom = 0, alpha = 0.5) + 
+  geom_sf(data = community_name_sf, aes(color = as.factor(Community_ID))) +
+  scale_color_manual(values = couleurs) +
+  theme_bw()
+
+#Associer à chaque communauté l'habitat correspondant selon la carte Corine Land Cover
+#Charger le fichier raster Corine land cover
+CLC <- raster("C:/Qgis/U2018_CLC2018_V2020_20u1.tif")
+community_vector <- community_name %>%
+  dplyr::select(Latitude, Longitude, Community_ID) 
+coordinates(community_vector) <- ~Longitude+Latitude
+proj4string(community_vector) <- CRS("+init=epsg:4326")
+community_vector <- spTransform(community_vector, CRS(projection(CLC))) #match with the CLC raster's CRS
+CLC_values <- raster::extract(CLC, community_vector)
+community_vector@data$CLC <- CLC_values
+community_vector_sf <- st_as_sf(community_vector)
+community_vector_sf_GPS <- st_transform(community_vector_sf, crs = 4326)
+coords <- st_coordinates(st_geometry(community_vector_sf_GPS))
+community_vector_df <- as.data.frame(community_vector_sf_GPS)
+community_vector_df$Latitude <- coords[, "Y"]
+community_vector_df$Longitude <- coords[, "X"]
+community_vector_df <- community_vector_df %>% dplyr::select(-geometry)
+CLC_count <- community_vector_df %>%
+  group_by(Community_ID, CLC) %>%
+  summarise(Count = n(), .groups = 'drop')
+Total_counts <- CLC_count %>%
+  group_by(Community_ID) %>%
+  summarise(Total = sum(Count), .groups = 'drop')
+CLC_percentages <- CLC_count %>% #travailler ensuite sur QGIS
+  left_join(Total_counts, by = "Community_ID") %>%
+  mutate(Percentage = (Count / Total) * 100) %>%
+  dplyr::select(Community_ID, CLC, Percentage)
+#st_write(community_vector_sf, "community_vector.shp")
+
+#Maintenant pour chaque Community_ID, la liste des espèces associées en %
+community_index_percentage_species <- merge(community, community_name[, c("Latitude", "Longitude", "Community_ID")], by = c("Latitude", "Longitude"))
+community_index_percentage_species$Species_Percentage=NULL
+#Calcul des moyennes pour chaque Community_ID
+community_mean <- community_index_percentage_species %>%
+  group_by(Community_ID) %>%
+  summarise(
+    Mean_TraitCoverage_cover = mean(TraitCoverage_cover, na.rm = TRUE),
+    Mean_Species_richness = mean(Species_richness, na.rm = TRUE)
+  )
+#Calcul de l'abondance totale par Community_ID et par espèce
+total_abundance_by_community <- community_index_percentage_species %>%
+  group_by(Community_ID) %>%
+  summarise(Total_abundance = sum(Original_abundance, na.rm = TRUE))
+
+abundance_totals <- community_index_percentage_species %>%
+  left_join(total_abundance_by_community, by = "Community_ID") %>%
+  group_by(Community_ID, Species) %>%
+  summarise(
+    Species_abundance = sum(Original_abundance, na.rm = TRUE),
+    Total_abundance = first(Total_abundance),  # S'assurer que Total_abundance est disponible pour chaque ligne
+    .groups = 'drop'
+  )
+#Calcul du pourcentage de chaque espèce dans sa communauté
+abundance_totals <- abundance_totals %>%
+  mutate(Species_Percentage = (Species_abundance / Total_abundance) * 100)
+
+top_species_by_community <- abundance_totals %>%
+  arrange(Community_ID, desc(Species_Percentage)) %>%
+  group_by(Community_ID) %>%
+  slice_max(order_by = Species_Percentage, n = 5) %>%
+  ungroup()
+
+species_community_1 <- top_species_by_community %>%
+  dplyr::filter(Community_ID==1)
+species_community_2 <- top_species_by_community %>%
+  dplyr::filter(Community_ID==2)
+species_community_3 <- top_species_by_community %>%
+  dplyr::filter(Community_ID==3)
+species_community_4 <- top_species_by_community %>%
+  dplyr::filter(Community_ID==4)
+species_community_5 <- top_species_by_community %>%
+  dplyr::filter(Community_ID==5)
+species_community_6 <- top_species_by_community %>%
+  dplyr::filter(Community_ID==6)
+species_community_7 <- top_species_by_community %>%
+  dplyr::filter(Community_ID==7)
+species_community_8 <- top_species_by_community %>%
+  dplyr::filter(Community_ID==8)
+species_community_9 <- top_species_by_community %>%
+  dplyr::filter(Community_ID==9)
+species_community_10 <- top_species_by_community %>%
+  dplyr::filter(Community_ID==10)
+
+combined_species <- bind_rows(
+  species_community_1,
+  species_community_2,
+  species_community_3,
+  species_community_4,
+  species_community_5,
+  species_community_6,
+  species_community_7,
+  species_community_8,
+  species_community_9,
+  species_community_10
+)
+
+couleurs <- c("#ca0020", "#cc6300", "#fdbf6f", "#ff6f0f", "#5cd052", 
+              "#a6cee3", "#1f78b4", "#33a02c", "#457428", "#2530c7")
+
+species_in_community <- ggplot(combined_species, aes(x = Species, y = Species_Percentage, fill = as.factor(Community_ID))) +
+  geom_col() +
+  scale_fill_manual(values = couleurs, name = "Identifiant de communauté") +
+  theme_minimal() +
+  labs(x = "Espèces", y = "Pourcentage d'espèce composant la communauté", fill = "Identifiants de communauté") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), axis.title.y = element_text(margin = margin(r = 20, unit = "pt"))) +
+  facet_wrap(~ Community_ID, scales = "free_x", ncol = 5)
+#ggsave("species_in_community.jpg", plot = species_in_community, width = 10, height = 8, dpi = 300)
+print(species_in_community)
+
+distrib <- ggplot(community_summary, aes(x = Average_Abundance, y = Number_of_Species)) +
   geom_point(aes(color = Average_Species_Richness), alpha = 0.6, size = 3) +
-  # Adds a smoothed line (loess) to illustrate the trend, with standard error shown in red
-  geom_smooth(method = "loess", formula = y ~ x, se = TRUE, color = "red", linewidth = 1) +
-  # Applies a color scale with the viridis palette, naming the legend "Average Species Richness"
-  scale_color_viridis_c(name = "Average Species Richness", option = "H") +
-  # Sets labels for axes and the title
-  labs(x = "Average Abundance per Species", y = "Number of Species",
-       title = "Species Abundance Distribution") +
-  # Uses a light theme for the plot
-  theme_light() +
-  # Customizes text and title appearance
-  theme(axis.text.y = element_text(size = 10, angle = 0, hjust = 1),
-        plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
-        axis.title.y = element_text(face = "italic"),
-        axis.title.x = element_text(face = "italic")) + 
-  # Positions the legend at the bottom
+  geom_smooth(method = "loess", formula = y ~ x, se = T, color = "red", linewidth = 1) +
+  scale_color_viridis_c(name = "Richesse spécifique moyenne", option = "H") + 
+  labs(x = "Abondance moyenne par espèce", y = "Nombre d'espèces",
+       title = "") +
+  theme_minimal() +
+ theme(plot.title = element_text(size = 15L, face = "bold", hjust = 0.5), axis.title.y =  element_text(size = 10L), axis.title.x = element_text(size = 10L)) + 
   theme(legend.position = "bottom")
+#ggsave("distrib.jpg", plot = distrib, width = 10, height = 8, dpi = 300)
 
-# Similar to the first snippet but adds log10 scales for both axes
-ggplot(community_summary, aes(x = Average_Abundance, y = Number_of_Species)) +
+distrib_log <- ggplot(community_summary, aes(x = Average_Abundance, y = Number_of_Species)) +
   geom_point(aes(color = Average_Species_Richness), alpha = 0.6, size = 3) +
-  geom_smooth(method = "loess", formula = y ~ x, se = TRUE, color = "red", linewidth = 1) +
-  # Applies a logarithmic transformation to the x-axis and sets its limits
-  scale_x_log10(name = "Average Abundance per Species (log)", limits = c(1, NA)) +
-  # Applies a logarithmic transformation to the y-axis and sets its limits
-  scale_y_log10(name = "Number of Species (log)", limits = c(1, NA)) +
-  # The color scale and labels are the same as the first snippet
-  scale_color_viridis_c(name = "Average Species Richness", option = "H") +
-  labs(x = "Average Abundance per Species", y = "Number of Species",
-       title = "Species Abundance Distribution") +
-  theme_light() +
-  theme(axis.text.y = element_text(size = 10, angle = 0, hjust = 1),
-        plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
-        axis.title.y = element_text(face = "italic"),
-        axis.title.x = element_text(face = "italic")) +
+  geom_smooth(method = "loess", formula = y ~ x, se = T, color = "red", linewidth = 1) +
+  scale_x_log10(name = "Abondance moyenne par espèce (log)", limits = c(1, NA)) +  # Transformation log pour l'axe X
+  scale_y_log10(name = "Nombre d'espèces (log)", limits = c(1, NA)) +
+  scale_color_viridis_c(name = "Richesse spécifique moyenne", option = "H") + 
+  labs(x = "Abondance moyenne par espèce", y = "Nombre d'espèces",
+       title = "") +
+  theme_minimal() +
+ theme(plot.title = element_text(size = 15L, face = "bold", hjust = 0.5), axis.title.y =  element_text(size = 10L), axis.title.x = element_text(size = 10L)) + 
   theme(legend.position = "bottom")
+#ggsave("distrib_log.jpg", plot = distrib_log, width = 10, height = 8, dpi = 300)
 
-# Filter the data to select only the necessary columns and then group by PlotObservationID
+print(distrib)
+print(distrib_log)
+
 filtered_data <- community_environment %>%
   dplyr::select(PlotObservationID, Species, Original_abundance) %>%
   group_by(PlotObservationID)
 
-# Create a community matrix using the xtabs function, crossing original abundance with Plot IDs and Species
 community_matrix <- xtabs(Original_abundance ~ PlotObservationID + Species, data = filtered_data)
-
-# Calculate Shannon diversity index for the community matrix
 shannon_diversity <- diversity(community_matrix, index = "shannon")
-
-# Create a data frame from the Shannon diversity indices
 shannon_df <- data.frame(PlotObservationID = names(shannon_diversity), a_diversity = shannon_diversity)
-
-# Convert PlotObservationID to numeric
 shannon_df$PlotObservationID <- as.numeric(shannon_df$PlotObservationID)
-
-# Join the Shannon diversity data frame back to the main community environment dataset
 community_environment <- community_environment %>%
   left_join(shannon_df, by = "PlotObservationID")
 
-# Join the Shannon diversity data frame with a subset of community_index_percentage_species to get community IDs
 alpha_diversity <- shannon_df %>%
   left_join(dplyr::select(community_index_percentage_species, PlotObservationID, Community_ID), 
             by = "PlotObservationID")
-
-# Remove duplicate rows to have unique alpha diversity values
 alpha_diversity_unique <- alpha_diversity %>% distinct()
+community_environment <- merge(community_environment, alpha_diversity_unique, by = "PlotObservationID")
 
-# Calculate the mean alpha diversity per community ID
 shannon_per_community <- alpha_diversity %>%
   group_by(Community_ID) %>%
   summarise(Mean_a_diversity = mean(a_diversity, na.rm = TRUE))
 
-# Merge the mean alpha diversity per community with the community mean dataset
+
 diversity_info <- merge(shannon_per_community, community_mean, by = "Community_ID")
-
-# Convert Community_ID to a factor for plotting purposes
 diversity_info$Community_ID <- factor(diversity_info$Community_ID)
+alpha_diversity_unique$Community_ID <- factor(alpha_diversity_unique$Community_ID)
 
-# Plot the mean alpha diversity per community using ggplot2
-ggplot(diversity_info) +
+plot_diversity_alpha <- ggplot(diversity_info) +
  aes(x = Community_ID, y = Mean_a_diversity, fill = Mean_Species_richness) +
  geom_col() +
  scale_fill_distiller(palette = "RdYlGn", direction = 1) +
- labs(x = "Community Identifier", 
- y = "Alpha Diversity (Shannon Index)", fill = "Species Richness") +
+ labs(x = "Identifiant de communauté", 
+ y = "Diversité alpha (indice de Shannon)", fill = "Richesse spécifique") +
  theme_minimal() +
  theme(plot.title = element_text(size = 15L, 
  face = "bold", hjust = 0.5), axis.title.y = element_text(size = 10L), axis.title.x = element_text(size = 10L))
+#ggsave("plot_diversity_alpha.jpg", plot = plot_diversity_alpha, width = 10, height = 8, dpi = 300)
+
+plot_diversity_alpha_log <- ggplot(alpha_diversity_unique) +
+  aes(
+    x = Community_ID,
+    y = a_diversity,
+    fill = Community_ID
+  ) +
+  geom_boxplot() +
+  scale_fill_manual(values = couleurs) + 
+  scale_y_continuous(trans = "log10") +
+  labs(
+    x = "Identifiant de communauté",
+    y = "Indice de Shannon (log10)",
+    fill = "ID de communauté"
+  ) +
+  theme_minimal()
+#ggsave("plot_diversity_alpha_log.jpg", plot = plot_diversity_alpha_log, width = 10, height = 8, dpi = 300)
+
+print(plot_diversity_alpha)
+print(plot_diversity_alpha_log)
+
+#Indice de Bray-Curtis puisque données abondance et pas présence absence
+bray_curtis <- vegdist(community_matrix, method = "bray")
+#nmds <- metaMDS(bray_curtis) #ordination non-métrique multidimensionnelle 
+#save(nmds, file = "nmds_results.RData")
+load("nmds_results.RData")
+plot(nmds)
+species_scores <- wascores(nmds$points, bray_curtis, expand = TRUE)
+df_nmds <- as.data.frame(nmds$points) # Convertir les points NMDS en dataframe
+ggplot(df_nmds, aes(MDS1, MDS2)) + 
+  geom_point() +
+  theme_minimal() +
+  labs(x = "NMDS1", y = "NMDS2", title = "Ordination NMDS")
+#stressplot(nmds)
+community_environment <- merge(community_environment, community_name, by = c("Longitude", "Latitude"))
+group <- community_environment %>%
+  dplyr::select(PlotObservationID, Community_ID.x) %>%
+  group_by(PlotObservationID)
+unique_group <- group %>%
+  dplyr::select(PlotObservationID, Community_ID.x) %>%
+  distinct()
+group_vector <- unique_group$Community_ID
+#anosim_result <- anosim(bray_curtis, group_vector)
+#save(anosim_result, file = "anosim_result.RData")
+load("anosim_result.RData")
+summary(anosim_result)
+beta_diversity <- rowMeans(as.matrix(bray_curtis))
+beta_df <- data.frame(PlotObservationID = rownames(bray_curtis), BetaDiversity = beta_diversity)
+beta_df$PlotObservationID <- rownames(beta_df)
+rownames(beta_df) <- NULL
+community_environment <- merge(community_environment, beta_df, by = "PlotObservationID")
+
+#Clustering ascendant : identification de cluster de similarité
+hc_bc <- hclust(bray_curtis, method = "complete") 
+plot(hc_bc, main = "Dendrogramme de la CAH")
+wss_bc <- sapply(1:100, function(k) {
+  kmeans(data_cluster, centers = k, nstart = 5, iter.max = 50)$tot.withinss
+})
+df_nbclust_bc <- data.frame(x = 1:100, y = wss_bc)
+ggplot(df_nbclust_bc, aes(x = x, y = y)) +
+  geom_line() +                   # Tracer une ligne
+  geom_vline(xintercept = 10, linetype = 2) + #k = 10 
+  labs(x = "Nombre de clusters", y = "Somme des carrés intra-cluster ") +
+  theme_minimal()  
+k_bc <- 10 # Nombre de clusters à former, à ajuster selon l'analyse
+clusters_bc <- cutree(hc_bc, k_bc)
+plot(clusters_bc)
+clusters_bc <- as.data.frame(clusters_bc)
+clusters_bc <- data.frame(PlotObservationID = rownames(clusters_bc), clusters_bc)
+rownames(clusters_bc) <- NULL
+community_environment <- merge(community_environment, clusters_bc, by = "PlotObservationID")
+beta_df <- merge(beta_df, clusters_bc, by = "PlotObservationID")
+beta_df$PlotObservationID <- as.integer(beta_df$PlotObservationID)
+#Ajout des données
+beta_diversity <- beta_df %>%
+  left_join(dplyr::select(community_index_percentage_species, PlotObservationID, Community_ID), 
+            by = "PlotObservationID")
+
+beta_diversity_unique <- beta_diversity %>% distinct()
+
+bray_curtis_per_community <- beta_diversity %>%
+  group_by(Community_ID) %>%
+  summarise(Mean_b_diversity = mean(BetaDiversity, na.rm = TRUE))
+beta_diversity_unique$Community_ID <- factor(beta_diversity_unique$Community_ID)
+beta_diversity_unique$clusters_bc <- factor(beta_diversity_unique$clusters_bc)
+
+plot_b_diversity_log <- ggplot(beta_diversity_unique) +
+  aes(
+    x = Community_ID,
+    y = BetaDiversity,
+    fill = Community_ID
+  ) +
+  geom_boxplot() +
+  scale_fill_manual(values = couleurs) +
+  scale_y_continuous(trans = "log10") +
+  labs(
+    x = "Identifiant de communauté",
+    y = "Indice de Bray-Curtis (log10)",
+    fill = "ID de Communauté"
+  ) +
+  theme_minimal()
+#ggsave("plot_b_diversity_log.jpg", plot = plot_b_diversity_log, width = 10, height = 8, dpi = 300)
+
+
+temp_merge <- merge(shannon_per_community, community_mean, by = "Community_ID")
+diversity_info <- merge(temp_merge, bray_curtis_per_community, by = "Community_ID")
+diversity_info$Community_ID <- factor(diversity_info$Community_ID)
+plot_diversity_beta <- ggplot(diversity_info) +
+ aes(x = Community_ID, y = Mean_a_diversity, fill = Mean_b_diversity) +
+ geom_col() +
+ scale_fill_distiller(palette = "RdYlGn", direction = 1) +
+ labs(x = "Identifiant de communauté", 
+ y = "Diversité alpha (indice de Shannon)", fill = "Diversité béta (Bray-Curtis)") +
+ theme_minimal() +
+ theme(plot.title = element_text(size = 15L, 
+ face = "bold", hjust = 0.5), axis.title.y = element_text(size = 10L), axis.title.x = element_text(size = 10L))
+#ggsave("plot_diversity_beta.jpg", plot = plot_diversity_beta, width = 10, height = 8, dpi = 300)
+
+print(plot_diversity_beta)
+print(plot_b_diversity_log)
+
+community_environment <- community_environment %>%
+  dplyr::select(-Community_Name.x, -a_diversity.x, -Grassland.y, -Forest.y, -Shrubland.y, -Wetland.y, -SoilClim_PC1.y, -SoilClim_PC2.y, -Community_ID.y)
+  
+community_environment <- community_environment %>%
+  rename(Community_name = Community_Name.y,
+       a_diversity = a_diversity.y,
+       Grassland = Grassland.x,
+       Forest = Forest.x,
+       Shrubland = Shrubland.x,
+       Wetland = Wetland.x,
+       SoilClim_PC1 = SoilClim_PC1.x,
+       SoilClim_PC2 = SoilClim_PC2.x, 
+       Community_ID = Community_ID.x)
+#write.csv(community_environment, "community_environment.csv")
